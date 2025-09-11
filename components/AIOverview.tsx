@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef } from 'react';
 import Card from './shared/Card';
 import { LightBulbIcon } from './Icons';
@@ -21,9 +20,9 @@ const parseMarkdownToHTML = (text: string) => {
 
 const ShimmerLoader: React.FC = () => (
     <div className="space-y-3 w-full">
-        <div className="h-3 bg-gray-300 dark:bg-gray-700 rounded w-5/6 animate-pulse"></div>
-        <div className="h-3 bg-gray-300 dark:bg-gray-700 rounded w-full animate-pulse"></div>
-        <div className="h-3 bg-gray-300 dark:bg-gray-700 rounded w-3/4 animate-pulse"></div>
+        <div className="h-3 bg-gray-300 dark:bg-gray-700 rounded w-5/6 animate-shimmer"></div>
+        <div className="h-3 bg-gray-300 dark:bg-gray-700 rounded w-full animate-shimmer"></div>
+        <div className="h-3 bg-gray-300 dark:bg-gray-700 rounded w-3/4 animate-shimmer"></div>
     </div>
 );
 

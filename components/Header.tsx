@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { MoonIcon, SunIcon, CogIcon, UserCircleIcon, SearchIcon, ClipboardListIcon } from './Icons';
 
@@ -51,7 +50,7 @@ const Header: React.FC<HeaderProps> = ({
     };
 
     return (
-        <header className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-lg shadow-sm sticky top-0 z-20">
+        <header className="bg-gradient-to-b from-white/90 to-white/70 dark:from-gray-900/90 dark:to-gray-900/70 backdrop-blur-lg shadow-md sticky top-0 z-20 border-b border-white/20 dark:border-white/10">
             <div className="container mx-auto px-4 md:px-6 py-3 flex justify-between items-center">
                 {/* Left Side */}
                 <div className="flex items-center space-x-3">

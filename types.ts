@@ -1,4 +1,5 @@
 
+
 export interface Product {
     id: number;
     name: string;
@@ -23,13 +24,33 @@ export interface ForecastedProduct extends CalculatedProduct {
     reorderSuggestion: string;
 }
 
+export interface ChartData {
+  type: 'bar' | 'pie' | 'comparison';
+  title: string;
+  data: any[];
+  config: {
+    dataKeys: { name: string; color: string }[];
+    xAxisKey?: string;
+  };
+}
+
+export interface AIInsight {
+  id: number;
+  type: 'General Insight' | 'Marketing Advice';
+  title:string;
+  content: string;
+  relatedProduct?: string;
+  timestamp: string;
+  visualization?: ChartData;
+}
+
 
 export interface ComplianceTask {
     task: string;
     details: string;
 }
 
-export type WidgetId = 'complianceChecklist' | 'profitabilityCharts' | 'geminiInsights' | 'marketingSimulator' | 'aiOverview' | 'goalTracker' | 'salesForecast';
+export type WidgetId = 'complianceChecklist' | 'profitabilityCharts' | 'geminiInsights' | 'marketingSimulator' | 'aiOverview' | 'goalTracker' | 'salesForecast' | 'aiKnowledgeBase' | 'dataInput';
 
 export interface WidgetState {
     order: number;
@@ -57,4 +78,5 @@ export interface ReportData {
         averageMargin: number;
     };
     products: CalculatedProduct[];
+    aiInsights: AIInsight[];
 }

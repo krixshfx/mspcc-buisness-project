@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
-import Card from './shared/Card';
 import Input from './shared/Input';
 import Button from './Button';
 import { Product } from '../types';
-import { PlusCircleIcon } from './Icons';
 
 interface ProductInputFormProps {
     addProduct: (product: Omit<Product, 'id'>) => void;
@@ -60,45 +58,43 @@ const ProductInputForm: React.FC<ProductInputFormProps> = ({ addProduct }) => {
     };
 
     return (
-        <Card title="Add New Product" icon={<PlusCircleIcon />}>
-            <form onSubmit={handleSubmit} className="p-6 space-y-6">
-                {error && <div className="p-3 bg-brand-accent-warning/10 text-brand-accent-warning rounded-md text-sm font-medium">{error}</div>}
-                <Input
-                    label="Product Name"
-                    id="productName"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g., Organic Milk"
-                />
-                <Input
-                    label="Purchase Price ($)"
-                    id="purchasePrice"
-                    type="number"
-                    value={purchasePrice}
-                    onChange={(e) => setPurchasePrice(e.target.value)}
-                    placeholder="e.g., 2.50"
-                    step="0.01"
-                />
-                <Input
-                    label="Selling Price ($)"
-                    id="sellingPrice"
-                    type="number"
-                    value={sellingPrice}
-                    onChange={(e) => setSellingPrice(e.target.value)}
-                    placeholder="e.g., 4.50"
-                    step="0.01"
-                />
-                <Input
-                    label="Units Sold per Week"
-                    id="unitsSold"
-                    type="number"
-                    value={unitsSoldWeek}
-                    onChange={(e) => setUnitsSoldWeek(e.target.value)}
-                    placeholder="e.g., 100"
-                />
-                <Button type="submit" fullWidth>Add Product</Button>
-            </form>
-        </Card>
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+            {error && <div className="p-3 bg-brand-accent-warning/10 text-brand-accent-warning rounded-md text-sm font-medium">{error}</div>}
+            <Input
+                label="Product Name"
+                id="productName"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g., Organic Milk"
+            />
+            <Input
+                label="Purchase Price ($)"
+                id="purchasePrice"
+                type="number"
+                value={purchasePrice}
+                onChange={(e) => setPurchasePrice(e.target.value)}
+                placeholder="e.g., 2.50"
+                step="0.01"
+            />
+            <Input
+                label="Selling Price ($)"
+                id="sellingPrice"
+                type="number"
+                value={sellingPrice}
+                onChange={(e) => setSellingPrice(e.target.value)}
+                placeholder="e.g., 4.50"
+                step="0.01"
+            />
+            <Input
+                label="Units Sold per Week"
+                id="unitsSold"
+                type="number"
+                value={unitsSoldWeek}
+                onChange={(e) => setUnitsSoldWeek(e.target.value)}
+                placeholder="e.g., 100"
+            />
+            <Button type="submit" fullWidth>Add Product</Button>
+        </form>
     );
 };
 

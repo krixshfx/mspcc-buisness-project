@@ -58,7 +58,8 @@
     "jspdf": "https://aistudiocdn.com/jspdf@^2.5.1",
     "jspdf-autotable": "https://aistudiocdn.com/jspdf-autotable@^3.8.2",
     "chart.js/auto": "https://aistudiocdn.com/chart.js@^4.4.3/auto",
-    "chart.js/": "https://aistudiocdn.com/chart.js@^4.5.0/"
+    "chart.js/": "https://aistudiocdn.com/chart.js@^4.5.0/",
+    "date-fns": "https://aistudiocdn.com/date-fns@^4.1.0"
   }
 }
 </script>
@@ -97,17 +98,53 @@
             background-position: 200% 0;
         }
     }
+
+    @keyframes fade-in {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    .animate-fade-in {
+        animation: fade-in 0.5s ease-out forwards;
+    }
+    @keyframes fade-in-fast {
+        from { opacity: 0; transform: scale(0.98) translateY(5px); }
+        to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .animate-fade-in-fast {
+        animation: fade-in-fast 0.4s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+    }
     
-    .blur-200 {
-        filter: blur(200px);
+    .blur-150 {
+        filter: blur(150px);
+    }
+
+    .noise-overlay {
+        position: fixed;
+        inset: 0;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 800 800' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        opacity: 0.03;
+        pointer-events: none;
+        z-index: 10;
+    }
+
+    .dark .noise-overlay {
+        opacity: 0.05;
+    }
+
+    /* General chart interactivity */
+    .recharts-bar-cursor,
+    .recharts-pie-sector,
+    .recharts-scatter-symbol {
+        cursor: pointer !important;
     }
 </style>
 </head>
 <body class="bg-brand-background dark:bg-brand-background-dark transition-colors duration-300">
     <div class="fixed inset-0 -z-10 overflow-hidden">
-        <div class="absolute top-[-10rem] left-[-15rem] w-[30rem] h-[30rem] bg-brand-primary/10 dark:bg-brand-primary/20 rounded-full blur-200 animate-aurora-spin"></div>
-        <div class="absolute bottom-[-15rem] right-[-20rem] w-[40rem] h-[40rem] bg-brand-accent-profit/10 dark:bg-brand-accent-profit/20 rounded-full blur-200 animate-aurora-move"></div>
+        <div class="absolute top-[-20rem] left-[-25rem] w-[50rem] h-[50rem] bg-brand-primary/10 dark:bg-brand-primary/20 rounded-full blur-150 animate-aurora-spin"></div>
+        <div class="absolute bottom-[-25rem] right-[-30rem] w-[60rem] h-[60rem] bg-brand-accent-profit/10 dark:bg-brand-accent-profit/20 rounded-full blur-150 animate-aurora-move"></div>
     </div>
+    <div class="noise-overlay"></div>
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
 </body>

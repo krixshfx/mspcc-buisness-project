@@ -1,20 +1,36 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { CalculatedProduct } from '../types';
+import { CalculatedProduct, ChartData } from '../types';
 import { getMarketingAdvice } from '../services/geminiService';
 import Card from './shared/Card';
 import Button from './Button';
 import Spinner from './shared/Spinner';
+import InsightVisualization from './shared/InsightVisualization';
 import { CalculatorIcon } from './Icons';
 
 interface MarketingSimulatorProps {
     products: CalculatedProduct[];
+    onAdviceGenerated: (productName: string, advice: string, visualization: ChartData) => void;
+    theme: string;
 }
 
-const MarketingSimulator: React.FC<MarketingSimulatorProps> = ({ products }) => {
+const AdviceShimmerLoader: React.FC = () => (
+    <div className="space-y-4">
+        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/3 animate-shimmer"></div>
+        <div className="space-y-2">
+            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded animate-shimmer"></div>
+            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-5/6 animate-shimmer"></div>
+            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-4/6 animate-shimmer"></div>
+        </div>
+        <div className="h-48 bg-gray-200 dark:bg-gray-700 rounded-lg animate-shimmer mt-4"></div>
+    </div>
+);
+
+const MarketingSimulator: React.FC<MarketingSimulatorProps> = ({ products, onAdviceGenerated, theme }) => {
     const [selectedProductId, setSelectedProductId] = useState<string>(products[0]?.id.toString() || '');
     const [discount, setDiscount] = useState('10');
     const [salesLift, setSalesLift] = useState('20');
     const [advice, setAdvice] = useState('');
+    const [visualization, setVisualization] = useState<ChartData | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -29,7 +45,8 @@ const MarketingSimulator: React.FC<MarketingSimulatorProps> = ({ products }) => 
             setSelectedProductId('');
         }
         setAdvice('');
-    }, [products, selectedProductId]);
+        setVisualization(null);
+    }, [products]);
 
 
     const simulation = useMemo(() => {
@@ -52,9 +69,12 @@ const MarketingSimulator: React.FC<MarketingSimulatorProps> = ({ products }) => 
         setIsLoading(true);
         setError('');
         setAdvice('');
+        setVisualization(null);
         try {
-            const result = await getMarketingAdvice(simulation.product, parseFloat(discount), parseFloat(salesLift), simulation.newPrice, simulation.newProfit);
-            setAdvice(result);
+            const { advice: resultText, visualization: vizData } = await getMarketingAdvice(simulation.product, parseFloat(discount), parseFloat(salesLift), simulation.newPrice, simulation.newProfit);
+            setAdvice(resultText);
+            setVisualization(vizData);
+            onAdviceGenerated(simulation.product.name, resultText, vizData);
         } catch (err) {
             setError('Failed to get marketing advice. Please check your API key.');
             console.error(err);
@@ -80,6 +100,7 @@ const MarketingSimulator: React.FC<MarketingSimulatorProps> = ({ products }) => 
                                 onChange={(e) => {
                                     setSelectedProductId(e.target.value);
                                     setAdvice('');
+                                    setVisualization(null);
                                 }}
                             >
                                 {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -124,10 +145,25 @@ const MarketingSimulator: React.FC<MarketingSimulatorProps> = ({ products }) => 
                 </div>
             </div>
              {error && <div className="p-3 mx-6 mb-6 bg-brand-accent-warning/10 text-brand-accent-warning rounded-md text-sm font-medium">{error}</div>}
-             {advice && (
-                 <div className="p-4 mx-6 mb-4 bg-brand-primary/5 dark:bg-brand-primary/20 rounded-lg prose prose-sm max-w-none dark:prose-invert">
-                     <h4 className="font-semibold font-display text-brand-primary dark:text-white">Gemini's Advice:</h4>
-                     <div className="whitespace-pre-wrap font-sans text-brand-text-secondary dark:text-gray-300" dangerouslySetInnerHTML={{ __html: advice.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
+             
+             {(isLoading || advice) && (
+                 <div className="p-4 mx-6 mb-4 bg-brand-primary/5 dark:bg-brand-primary/20 rounded-lg">
+                    {isLoading ? (
+                        <AdviceShimmerLoader />
+                    ) : (
+                         <div className="prose prose-sm max-w-none dark:prose-invert">
+                             <h4 className="font-semibold font-display text-brand-primary dark:text-white">Gemini's Advice:</h4>
+                             <div className="whitespace-pre-wrap font-sans text-brand-text-secondary dark:text-gray-300" dangerouslySetInnerHTML={{ __html: advice.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
+                              {visualization && (
+                                <div className="mt-4 not-prose">
+                                     <h4 className="text-md font-semibold font-display text-brand-primary dark:text-gray-300 mb-2 text-center">{visualization.title}</h4>
+                                    <div className="h-64">
+                                        <InsightVisualization chart={visualization} theme={theme} />
+                                    </div>
+                                </div>
+                            )}
+                         </div>
+                     )}
                  </div>
              )}
         </Card>

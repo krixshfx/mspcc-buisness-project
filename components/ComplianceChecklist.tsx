@@ -7,6 +7,20 @@ import Button from './Button';
 import Spinner from './shared/Spinner';
 import { ClipboardCheckIcon } from './Icons';
 
+const ChecklistShimmerLoader: React.FC = () => (
+    <div className="space-y-4 mt-4">
+        {[...Array(4)].map((_, i) => (
+            <div key={i} className="flex items-start space-x-3">
+                <div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 rounded animate-shimmer flex-shrink-0"></div>
+                <div className="flex-grow space-y-2">
+                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 animate-shimmer"></div>
+                    <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2 animate-shimmer"></div>
+                </div>
+            </div>
+        ))}
+    </div>
+);
+
 const ComplianceChecklist: React.FC = () => {
     const [location, setLocation] = useState('California, USA');
     const [businessType, setBusinessType] = useState('Grocery Store');
@@ -62,7 +76,10 @@ const ComplianceChecklist: React.FC = () => {
                     {isLoading ? <Spinner /> : 'Generate Checklist'}
                 </Button>
                 {error && <div className="p-3 bg-brand-accent-warning/10 text-brand-accent-warning rounded-md text-sm font-medium">{error}</div>}
-                {checklist.length > 0 && (
+                
+                {isLoading && <ChecklistShimmerLoader />}
+
+                {checklist.length > 0 && !isLoading && (
                     <div className="space-y-3 mt-4 max-h-80 overflow-y-auto pr-2">
                         {checklist.map((item, index) => (
                             <div key={index} className="relative flex items-start">

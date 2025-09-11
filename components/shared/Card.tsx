@@ -11,7 +11,7 @@ interface CardProps {
 
 const Card: React.FC<CardProps> = ({ title, icon, actions, children, className = '', badge }) => {
     return (
-        <div className={`bg-white/70 dark:bg-gray-800/70 backdrop-blur-lg rounded-xl shadow-lg ${className}`}>
+        <div className={`bg-gradient-to-br from-white/70 to-white/50 dark:from-gray-800/80 dark:to-gray-900/60 backdrop-blur-lg rounded-xl shadow-2xl border border-white/20 dark:border-white/10 transition-all duration-300 hover:shadow-brand-primary/20 ${className}`}>
             <div className="p-5 border-b border-gray-200/80 dark:border-gray-700/80 flex items-center justify-between">
                 <div className="flex items-center space-x-3 min-w-0">
                     {icon && <span className="text-brand-primary dark:text-brand-accent-profit">{icon}</span>}

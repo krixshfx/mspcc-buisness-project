@@ -1,14 +1,10 @@
-
-
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import Papa from 'papaparse';
-import { Product, CalculatedProduct, WidgetConfig, WidgetId, ForecastedProduct } from './types';
+import { Product, CalculatedProduct, WidgetConfig, WidgetId, ForecastedProduct, AIInsight, ChartData } from './types';
 import { initialProducts, DEFAULT_WIDGET_CONFIG } from './constants';
-import { generateFullPdfReportContent, getSalesForecastAndSuggestions, getBusinessOverviewStream } from './services/geminiService';
+import { generateFullPdfReportContent, getSalesForecastAndSuggestions, getBusinessOverviewStream, parseUnstructuredData } from './services/geminiService';
 import { generatePdfReport } from './services/reportGenerator';
 import Header from './components/Header';
-import ProductInputForm from './components/ProductInputForm';
 import ProductDataTable from './components/ProductDataTable';
 import ProfitabilityCharts from './components/ProfitabilityCharts';
 import GeminiInsights from './components/GeminiInsights';
@@ -25,10 +21,46 @@ import AIOverview from './components/AIOverview';
 import SalesForecastModal from './components/SalesForecastModal';
 import SetGoalModal from './components/SetGoalModal';
 import GoalTrackerCard from './components/GoalTrackerCard';
-import { ChartBarIcon, SparklesIcon, TrendingUpIcon, CurrencyDollarIcon, CubeIcon, BanknotesIcon, ArrowUpIcon, ArrowDownIcon } from './components/Icons';
+import AIKnowledgeBase from './components/AIKnowledgeBase';
+import KPICard from './components/KPICard';
+import DataInputPane from './components/DataInputPane';
+import { ChartBarIcon, SparklesIcon, TrendingUpIcon, ChartTrendingUpIcon, TrophyIcon } from './components/Icons';
 
 
 type Tab = 'dashboard' | 'ai_analysis';
+
+/**
+ * Performs a fuzzy search to check if a needle is a subsequence of the haystack.
+ * This is good for partial matches and typos with missing letters.
+ * @param needle The search term.
+ * @param haystack The text to search within.
+ * @returns True if the needle is a subsequence of the haystack.
+ */
+const fuzzySearch = (needle: string, haystack: string): boolean => {
+    if (!needle) return true;
+    if (!haystack) return false;
+
+    const hlen = haystack.length;
+    const nlen = needle.length;
+
+    if (nlen > hlen) {
+        return false;
+    }
+    if (nlen === hlen) {
+        return needle === haystack;
+    }
+
+    outer: for (let i = 0, j = 0; i < nlen; i++) {
+        const nch = needle[i];
+        while (j < hlen) {
+            if (haystack[j++] === nch) {
+                continue outer;
+            }
+        }
+        return false;
+    }
+    return true;
+};
 
 const App: React.FC = () => {
     const [products, setProducts] = useState<Product[]>(() => {
@@ -50,6 +82,15 @@ const App: React.FC = () => {
             return savedGoal ? parseFloat(savedGoal) : 1500;
         } catch {
             return 1500;
+        }
+    });
+
+    const [aiKnowledge, setAiKnowledge] = useState<AIInsight[]>(() => {
+        try {
+            const saved = localStorage.getItem('aiKnowledge');
+            return saved ? JSON.parse(saved) : [];
+        } catch {
+            return [];
         }
     });
 
@@ -105,6 +146,10 @@ const App: React.FC = () => {
     useEffect(() => {
         localStorage.setItem('profitGoal', profitGoal.toString());
     }, [profitGoal]);
+    
+     useEffect(() => {
+        localStorage.setItem('aiKnowledge', JSON.stringify(aiKnowledge));
+    }, [aiKnowledge]);
 
     useEffect(() => {
         if (theme === 'dark') {
@@ -155,23 +200,57 @@ const App: React.FC = () => {
     }, [products]);
 
     const filteredProducts = useMemo(() => {
+        const lowercasedSearchTerm = searchTerm.toLowerCase().trim();
+        const searchTokens = lowercasedSearchTerm.split(/\s+/).filter(Boolean);
+
         return calculatedProducts.filter(p => {
-            const searchTermMatch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
+            // First, check if the category filter from the chart is active.
             const categoryMatch = selectedCategory ? p.category === selectedCategory : true;
-            return searchTermMatch && categoryMatch;
+            if (!categoryMatch) {
+                return false;
+            }
+
+            // If no search term, return all (or category-filtered) products.
+            if (searchTokens.length === 0) {
+                return true;
+            }
+
+            // Combine product fields into a single searchable string.
+            const searchableText = [
+                p.name,
+                p.category,
+                p.supplier
+            ].filter(Boolean).join(' ').toLowerCase();
+
+            // All search tokens must be found within the searchable text using fuzzy matching.
+            return searchTokens.every(token => fuzzySearch(token, searchableText));
         });
     }, [calculatedProducts, searchTerm, selectedCategory]);
     
     const dashboardMetrics = useMemo(() => {
         const source = filteredProducts;
         if (source.length === 0) {
-            return { totalWeeklyProfit: 0, topProductByProfit: null, averageMargin: 0, totalWeeklyRevenue: 0 };
+            return { totalWeeklyProfit: 0, topProductByProfit: null, averageMargin: 0, totalWeeklyRevenue: 0, profitTrend: [], marginTrend: [] };
         }
         const totalWeeklyProfit = source.reduce((sum, p) => sum + p.weeklyProfit, 0);
         const totalWeeklyRevenue = source.reduce((sum, p) => sum + p.weeklyRevenue, 0);
         const averageMargin = source.reduce((sum, p) => sum + p.margin, 0) / source.length;
         const topProductByProfit = [...source].sort((a,b) => b.weeklyProfit - a.weeklyProfit)[0] || null;
-        return { totalWeeklyProfit, topProductByProfit, averageMargin, totalWeeklyRevenue };
+
+        const generateTrend = (currentValue: number) => {
+            if (currentValue === 0) return [0,0,0,0,0,0,0];
+            const trend = [currentValue];
+            for (let i = 0; i < 6; i++) {
+                const fluctuation = (Math.random() - 0.45) * 0.15 * trend[0];
+                trend.unshift(Math.max(0, trend[0] - fluctuation));
+            }
+            return trend;
+        };
+
+        const profitTrend = generateTrend(totalWeeklyProfit);
+        const marginTrend = generateTrend(averageMargin);
+
+        return { totalWeeklyProfit, topProductByProfit, averageMargin, totalWeeklyRevenue, profitTrend, marginTrend };
     }, [filteredProducts]);
 
      useEffect(() => {
@@ -286,7 +365,7 @@ const App: React.FC = () => {
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.setAttribute('href', url);
-            link.setAttribute('download', `product_data_export_${new Date().toISOString().split('T', 1)[0]}.csv`);
+            link.setAttribute('download', `product_data_export_${new Date().toISOString().substring(0, 10)}.csv`);
             link.style.visibility = 'hidden';
             document.body.appendChild(link);
             link.click();
@@ -308,6 +387,7 @@ const App: React.FC = () => {
                 reportContent,
                 metrics: dashboardMetrics,
                 products: filteredProducts,
+                aiInsights: aiKnowledge,
             });
 
         } catch (error) {
@@ -333,6 +413,61 @@ const App: React.FC = () => {
         }
     };
     
+    const handleInsightGenerated = (question: string, content: string, visualization?: ChartData) => {
+        const newInsight: AIInsight = {
+            id: Date.now(),
+            type: 'General Insight',
+            title: `Insight for: "${question.substring(0, 40)}${question.length > 40 ? '...' : ''}"`,
+            content,
+            visualization,
+            timestamp: new Date().toISOString(),
+        };
+        setAiKnowledge(prev => [newInsight, ...prev]);
+    };
+
+    const handleAdviceGenerated = (productName: string, content: string, visualization: ChartData) => {
+        const newAdvice: AIInsight = {
+            id: Date.now(),
+            type: 'Marketing Advice',
+            title: `Marketing Advice for ${productName}`,
+            content,
+            relatedProduct: productName,
+            visualization,
+            timestamp: new Date().toISOString(),
+        };
+        setAiKnowledge(prev => [newAdvice, ...prev]);
+    };
+
+    const handleDismissInsight = (id: number) => {
+        setAiKnowledge(prev => prev.filter(item => item.id !== id));
+    };
+
+    const handleLoadExtractedData = async (extractedData: { headers: string[], data: any[][] }): Promise<number> => {
+        const csvString = Papa.unparse({
+            fields: extractedData.headers,
+            data: extractedData.data
+        });
+
+        const newProducts = await parseUnstructuredData(csvString);
+
+        if (!newProducts || newProducts.length === 0) {
+            throw new Error("The extracted data does not contain recognizable product information (like 'name' and 'price'). Please extract data that can be mapped to your product list.");
+        }
+
+        loadProducts(newProducts);
+        return newProducts.length;
+    };
+    
+    const formatLargeNumber = (num: number): string => {
+        if (num >= 10000000) { // 1 Crore
+            return `$${(num / 10000000).toFixed(2)} Cr`;
+        }
+        if (num >= 100000) { // 1 Lakh
+            return `$${(num / 100000).toFixed(2)} L`;
+        }
+        return `$${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    };
+
     const renderWidgets = (
         widgetComponents: Array<{ id: WidgetId; component: React.ReactNode }>
     ) => {
@@ -342,7 +477,11 @@ const App: React.FC = () => {
             .map((w) => <React.Fragment key={w.id}>{w.component}</React.Fragment>);
     };
 
-    const mainWidgets = [
+    const leftColumnWidgets = [
+        { id: 'dataInput' as WidgetId, component: <DataInputPane addProduct={addProduct} products={calculatedProducts} onLoadData={handleLoadExtractedData} /> },
+    ];
+
+    const mainColumnWidgets = [
         { id: 'aiOverview' as WidgetId, component: <AIOverview content={aiOverviewContent} /> },
         { id: 'complianceChecklist' as WidgetId, component: <ComplianceChecklist /> },
     ];
@@ -352,8 +491,9 @@ const App: React.FC = () => {
     ];
 
     const aiAnalysisTabWidgets = [
-        { id: 'geminiInsights' as WidgetId, component: <GeminiInsights products={calculatedProducts} /> },
-        { id: 'marketingSimulator' as WidgetId, component: <MarketingSimulator products={calculatedProducts} /> },
+        { id: 'geminiInsights' as WidgetId, component: <GeminiInsights products={calculatedProducts} onInsightGenerated={handleInsightGenerated} theme={theme}/> },
+        { id: 'marketingSimulator' as WidgetId, component: <MarketingSimulator products={calculatedProducts} onAdviceGenerated={handleAdviceGenerated} theme={theme}/> },
+        { id: 'aiKnowledgeBase' as WidgetId, component: <AIKnowledgeBase insights={aiKnowledge} onDismissInsight={handleDismissInsight} theme={theme} /> },
     ];
 
     return (
@@ -373,26 +513,30 @@ const App: React.FC = () => {
 
                  {/* KPI Section */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                    <KPI_Card 
+                    <KPICard 
                         title="Total Weekly Profit" 
-                        value={`$${dashboardMetrics.totalWeeklyProfit.toFixed(2)}`}
-                        icon={<CurrencyDollarIcon />}
+                        value={formatLargeNumber(dashboardMetrics.totalWeeklyProfit)}
+                        icon={<ChartTrendingUpIcon />}
+                        trendData={dashboardMetrics.profitTrend}
+                        tooltipFormatter={(value) => `$${(value as number).toFixed(2)}`}
                     />
                     <GoalTrackerCard 
                         currentProfit={dashboardMetrics.totalWeeklyProfit}
                         profitGoal={profitGoal}
                         onSetGoal={() => setIsSetGoalModalOpen(true)}
                     />
-                    <KPI_Card 
+                    <KPICard 
                         title="Average Profit Margin" 
                         value={`${dashboardMetrics.averageMargin.toFixed(1)}%`}
                         icon={<TrendingUpIcon />}
+                        trendData={dashboardMetrics.marginTrend}
+                        tooltipFormatter={(value) => `${(value as number).toFixed(1)}%`}
                     />
-                    <KPI_Card 
+                    <KPICard 
                         title="Top Product (by Profit)" 
                         value={dashboardMetrics.topProductByProfit?.name || 'N/A'}
-                        icon={<CubeIcon />}
-                        description={dashboardMetrics.topProductByProfit ? `$${dashboardMetrics.topProductByProfit.weeklyProfit.toFixed(2)} profit` : 'No products found'}
+                        icon={<TrophyIcon />}
+                        description={dashboardMetrics.topProductByProfit ? `${formatLargeNumber(dashboardMetrics.topProductByProfit.weeklyProfit)} profit` : 'No products found'}
                     />
                 </div>
 
@@ -400,16 +544,16 @@ const App: React.FC = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     {/* Left Column */}
                     <div className="lg:col-span-1 flex flex-col gap-8">
-                        <ProductInputForm addProduct={addProduct} />
+                        {renderWidgets(leftColumnWidgets)}
                         <DataUpload loadProducts={loadProducts} />
-                        {renderWidgets(mainWidgets)}
+                        {renderWidgets(mainColumnWidgets)}
                     </div>
 
                     {/* Right Column */}
                     <div className="lg:col-span-2 flex flex-col gap-8">
                         {products.length > 0 ? (
                             <>
-                                <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-lg rounded-xl shadow-md p-2">
+                                <div className="bg-gradient-to-br from-white/60 to-white/40 dark:from-gray-800/70 dark:to-gray-900/50 backdrop-blur-lg rounded-xl shadow-inner-lg border border-white/20 dark:border-white/10 p-2">
                                     <nav className="flex space-x-2" aria-label="Tabs">
                                         <TabButton name="Dashboard" isActive={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
                                         <TabButton name="AI Analysis" isActive={activeTab === 'ai_analysis'} onClick={() => setActiveTab('ai_analysis')} />
@@ -515,24 +659,11 @@ const TabButton: React.FC<{ name: string; isActive: boolean; onClick: () => void
     <button
         onClick={onClick}
         className={`${
-            isActive ? 'bg-brand-primary text-white shadow-md' : 'text-brand-text-secondary dark:text-gray-400 hover:text-brand-primary dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700/50'
+            isActive ? 'bg-gradient-to-br from-brand-primary to-brand-primary-dark text-white shadow-lg ring-2 ring-white/10' : 'text-brand-text-secondary dark:text-gray-400 hover:text-brand-primary dark:hover:text-white hover:bg-gray-200/50 dark:hover:bg-gray-700/50'
         } rounded-lg px-4 py-2 text-sm font-bold font-display transition-all duration-200 ease-in-out`}
     >
         {name}
     </button>
-);
-
-const KPI_Card: React.FC<{title: string, value: string, icon: React.ReactNode, description?: string}> = ({title, value, icon, description}) => (
-    <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-lg rounded-xl shadow-lg p-5 flex">
-        <div className="flex-shrink-0 h-12 w-12 flex items-center justify-center rounded-full bg-brand-primary text-white mr-4">
-            {icon}
-        </div>
-        <div className="min-w-0">
-            <p className="text-sm text-brand-text-secondary dark:text-gray-400 font-medium">{title}</p>
-            <p className="text-2xl font-bold font-display text-brand-primary dark:text-white truncate" title={value}>{value}</p>
-            {description && <p className="text-xs text-brand-text-secondary dark:text-gray-500 truncate">{description}</p>}
-        </div>
-    </div>
 );
 
 export default App;

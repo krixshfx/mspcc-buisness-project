@@ -1,8 +1,11 @@
+
+
 import React, { useState } from 'react';
-import { CalculatedProduct } from '../types';
+import { CalculatedProduct, ChartData } from '../types';
 import { getAiInsight } from '../services/geminiService';
 import Card from './shared/Card';
 import Button from './Button';
+import InsightVisualization from './shared/InsightVisualization';
 import { SparklesIcon } from './Icons';
 
 // Simple markdown to HTML parser
@@ -36,14 +39,16 @@ const ShimmerLoader: React.FC = () => (
     </div>
 );
 
-// FIX: Define the props interface for the component.
 interface GeminiInsightsProps {
     products: CalculatedProduct[];
+    onInsightGenerated: (question: string, insight: string, visualization?: ChartData) => void;
+    theme: string;
 }
 
-const GeminiInsights: React.FC<GeminiInsightsProps> = ({ products }) => {
+const GeminiInsights: React.FC<GeminiInsightsProps> = ({ products, onInsightGenerated, theme }) => {
     const [question, setQuestion] = useState('Which product has the worst margin and why? What should I do?');
     const [insight, setInsight] = useState('');
+    const [visualization, setVisualization] = useState<ChartData | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -55,9 +60,12 @@ const GeminiInsights: React.FC<GeminiInsightsProps> = ({ products }) => {
         setIsLoading(true);
         setError('');
         setInsight('');
+        setVisualization(null);
         try {
-            const result = await getAiInsight(products, question);
-            setInsight(result);
+            const { insight: resultText, visualization: vizData } = await getAiInsight(products, question);
+            setInsight(resultText);
+            setVisualization(vizData || null);
+            onInsightGenerated(question, resultText, vizData);
         } catch (err) {
             setError('Failed to get insights from AI. Please check your API key and try again.');
             console.error(err);
@@ -99,6 +107,14 @@ const GeminiInsights: React.FC<GeminiInsightsProps> = ({ products }) => {
                         <p className="text-center w-full text-brand-text-secondary dark:text-gray-400 text-sm">Your AI-generated insight will appear here.</p>
                     )}
                 </div>
+                 {visualization && (
+                    <div className="mt-4 p-4 bg-gray-100 dark:bg-gray-900/50 rounded-lg">
+                         <h4 className="text-md font-semibold font-display text-brand-primary dark:text-gray-300 mb-2 text-center">{visualization.title}</h4>
+                        <div className="h-64">
+                            <InsightVisualization chart={visualization} theme={theme} />
+                        </div>
+                    </div>
+                )}
 
             </div>
         </Card>

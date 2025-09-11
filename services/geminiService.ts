@@ -1,7 +1,7 @@
 
 
 import { GoogleGenAI, Type } from '@google/genai';
-import { CalculatedProduct, ComplianceTask, Product, ForecastedProduct, ReportData } from '../types';
+import { CalculatedProduct, ComplianceTask, Product, ForecastedProduct, ReportData, ChartData } from '../types';
 
 if (!process.env.API_KEY) {
     throw new Error("API_KEY environment variable not set");
@@ -17,10 +17,24 @@ const formatProductDataForPrompt = (products: CalculatedProduct[]): string => {
     return dataStr;
 };
 
-export const getAiInsight = async (products: CalculatedProduct[], question: string): Promise<string> => {
+// Helper function to sanitize and validate numerical data from AI
+const cleanAndValidateNumber = (input: any): number => {
+    if (typeof input === 'number') {
+        return input;
+    }
+    if (typeof input === 'string') {
+        const cleaned = input.replace(/[$,\s]/g, '');
+        const number = parseFloat(cleaned);
+        return isNaN(number) ? 0 : number;
+    }
+    return 0;
+};
+
+
+export const getAiInsight = async (products: CalculatedProduct[], question: string): Promise<{ insight: string, visualization?: ChartData }> => {
     const dataStr = formatProductDataForPrompt(products);
     const prompt = `
-        Act as a senior retail business analyst for a small store owner. Your goal is to provide clear, actionable insights to maximize profit.
+        Act as a senior retail business analyst for a small store owner. Your goal is to provide clear, actionable insights and a helpful visualization to maximize profit.
 
         Based on the following product performance data:
         --- DATA ---
@@ -29,17 +43,100 @@ export const getAiInsight = async (products: CalculatedProduct[], question: stri
 
         The store owner asks: "${question}"
 
-        Please structure your response as follows, using simple Markdown for formatting:
-        1.  **Key Takeaway:** A single, bolded sentence summarizing the most critical insight.
-        2.  **Actionable Recommendations:** A bulleted list of practical steps the owner can take based on the data and the question. The advice should be specific and consider the context of a small business (e.g., a low-margin item driving traffic for high-margin ones).
+        Please provide your response in a structured JSON format. Your response must follow the provided schema precisely.
+
+        **Instructions for your response:**
+        1.  **"insight"**: Your analysis, formatted as simple markdown text. Structure it with a **Key Takeaway** and **Actionable Recommendations**. Be concise and direct.
+        2.  **"visualization"**: Create a simple and clear visualization that directly supports your analysis.
+            -   **Identify the most important metric** to visualize based on the question (e.g., 'weeklyProfit', 'margin', 'unitsSoldWeek').
+            -   **Structure the data** as an array of objects, where each object has a "name" (string label) and a "value" (the numerical metric).
+            -   **Ensure all "value" properties are actual numbers**, not strings. Do not include currency symbols or commas.
+            -   **Keep it focused**: For bar charts, select the top 5-7 most relevant items to keep the chart readable.
+            -   **Configuration**:
+                -   Set \`config.xAxisKey\` to "name".
+                -   Set \`config.dataKeys\` to be an array with a single object: \`[{ "name": "value", "color": "#4ECDC4" }]\`.
     `;
 
     try {
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: prompt,
+             config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        insight: {
+                            type: Type.STRING,
+                            description: "The textual insight formatted in simple markdown."
+                        },
+                        visualization: {
+                            type: Type.OBJECT,
+                            nullable: true,
+                            description: "A visualization object to support the insight. Must be null if no relevant chart can be made.",
+                            properties: {
+                                type: { type: Type.STRING, enum: ['bar', 'pie'] },
+                                title: { type: Type.STRING },
+                                data: {
+                                    type: Type.ARRAY,
+                                    description: "Data for the chart. The 'value' property must be a NUMBER.",
+                                    items: {
+                                        type: Type.OBJECT,
+                                        properties: {
+                                            name: {
+                                                type: Type.STRING,
+                                                description: "The label for the data point (e.g., product name)."
+                                            },
+                                            value: {
+                                                type: Type.NUMBER,
+                                                description: "The numerical value for the data point."
+                                            }
+                                        },
+                                        required: ["name", "value"]
+                                    }
+                                },
+                                config: {
+                                    type: Type.OBJECT,
+                                    description: "Configuration for rendering the chart. For this schema, dataKeys should always contain one item with name: 'value'.",
+                                    properties: {
+                                        dataKeys: { 
+                                            type: Type.ARRAY, 
+                                            items: { 
+                                                type: Type.OBJECT, 
+                                                properties: { 
+                                                    name: { type: Type.STRING, description: "Should be 'value'." }, 
+                                                    color: { type: Type.STRING, description: "A hex color code." } 
+                                                },
+                                                required: ["name", "color"]
+                                            }
+                                        },
+                                        xAxisKey: { type: Type.STRING, description: "Should be 'name'." }
+                                    },
+                                    required: ["dataKeys", "xAxisKey"]
+                                }
+                            },
+                            required: ["type", "title", "data", "config"]
+                        }
+                    },
+                    required: ["insight"]
+                }
+            }
         });
-        return response.text;
+        const jsonStr = response.text.trim();
+        const parsed = JSON.parse(jsonStr);
+        
+        // Data cleaning for visualization
+        if (parsed.visualization && parsed.visualization.data) {
+            parsed.visualization.data = parsed.visualization.data.map((item: any) => ({
+                ...item,
+                value: cleanAndValidateNumber(item.value)
+            })).filter((item: any) => item.name); // Ensure items have a name
+        }
+        
+        return {
+            insight: parsed.insight,
+            visualization: parsed.visualization
+        };
     } catch (error) {
         console.error("Error fetching AI insight:", error);
         throw new Error("Failed to communicate with the Gemini API.");
@@ -103,31 +200,89 @@ export const getMarketingAdvice = async (
     lift: number,
     newPrice: number,
     simulatedProfit: number
-): Promise<string> => {
+): Promise<{ advice: string; visualization: ChartData; }> => {
+    const originalProfit = (product.sellingPrice - product.purchasePrice) * product.unitsSoldWeek;
     const prompt = `
         Act as a marketing strategist for a small retail business.
-        The owner is considering the following promotion:
+        The owner is considering a promotion. Analyze the provided data and return a JSON object containing your advice and data for a comparison visualization.
+
+        --- Promotion Data ---
         - Product: ${product.name}
         - Current Price: $${product.sellingPrice.toFixed(2)}
-        - Current Weekly Profit from this product: $${((product.sellingPrice - product.purchasePrice) * product.unitsSoldWeek).toFixed(2)}
+        - Current Weekly Units Sold: ${product.unitsSoldWeek}
+        - Current Weekly Profit from this product: $${originalProfit.toFixed(2)}
         - Proposed Discount: ${discount}%
         - New Price: $${newPrice.toFixed(2)}
-        - Estimated Weekly Sales Increase: ${lift}%
+        - Estimated Weekly Sales Increase (Lift): ${lift}%
+        - Simulated New Weekly Units: ${Math.round(product.unitsSoldWeek * (1 + lift/100))}
         - Simulated Weekly Profit: $${simulatedProfit.toFixed(2)}
+        --- End Data ---
 
-        Based on this simulation, provide brief, expert advice using simple Markdown for formatting.
-        1.  **Potential Pros:** What are the upsides (e.g., customer acquisition, moving inventory)?
-        2.  **Potential Cons/Risks:** What should the owner be cautious about (e.g., brand perception, profitability hit)? Quantify the risk if possible (e.g., "The break-even sales lift for this discount is X%").
-        3.  **Alternative Idea:** Suggest one alternative marketing idea for this product.
-        4.  **Recommendation:** Conclude with a final verdict: "**Recommendation:** Go" or "**Recommendation:** No-Go" with a one-sentence justification.
+        Your JSON response must include:
+        1. "advice": A brief, expert markdown-formatted text. Cover **Potential Pros**, **Potential Cons/Risks**, an **Alternative Idea**, and a final **Recommendation** ("Go" or "No-Go").
+        2. "visualization": A 'comparison' bar chart object. The data should compare 'Original' vs 'Simulated' for these three metrics: 'Weekly Profit', 'Selling Price', and 'Units Sold'.
     `;
 
     try {
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        advice: { type: Type.STRING },
+                        visualization: {
+                            type: Type.OBJECT,
+                            properties: {
+                                type: { type: Type.STRING, enum: ['comparison'] },
+                                title: { type: Type.STRING },
+                                data: {
+                                    type: Type.ARRAY,
+                                    items: {
+                                        type: Type.OBJECT,
+                                        properties: {
+                                            metric: { type: Type.STRING },
+                                            Original: { type: Type.NUMBER },
+                                            Simulated: { type: Type.NUMBER },
+                                        },
+                                        required: ["metric", "Original", "Simulated"]
+                                    }
+                                },
+                                config: {
+                                    type: Type.OBJECT,
+                                    properties: {
+                                        dataKeys: { type: Type.ARRAY, items: { 
+                                            type: Type.OBJECT, 
+                                            properties: { name: { type: Type.STRING }, color: { type: Type.STRING } }
+                                        }},
+                                        xAxisKey: { type: Type.STRING }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    required: ["advice", "visualization"]
+                }
+            }
         });
-        return response.text;
+        const jsonStr = response.text.trim();
+        const parsed = JSON.parse(jsonStr);
+
+        // Data cleaning for visualization
+        if (parsed.visualization && parsed.visualization.data) {
+             parsed.visualization.data = parsed.visualization.data.map((item: any) => ({
+                ...item,
+                Original: cleanAndValidateNumber(item.Original),
+                Simulated: cleanAndValidateNumber(item.Simulated)
+            }));
+        }
+
+        return {
+            advice: parsed.advice,
+            visualization: parsed.visualization,
+        };
     } catch (error) {
         console.error("Error fetching marketing advice:", error);
         throw new Error("Failed to communicate with the Gemini API.");
@@ -136,23 +291,28 @@ export const getMarketingAdvice = async (
 
 export const parseUnstructuredData = async (fileContent: string): Promise<Omit<Product, 'id'>[]> => {
     const prompt = `
-        Act as an intelligent data extraction engine. Your task is to analyze the following unstructured text data from a file and convert it into a structured JSON array of products.
+        Act as an intelligent data extraction and sanitation engine. Your task is to analyze the following unstructured text data and convert it into a structured JSON array of products. This data may come from a file upload or a web data extraction.
 
         The data could be in CSV, JSON, TXT with different delimiters, or just copy-pasted text.
         Be smart about mapping column headers. For example:
-        - 'Product Name', 'Item', 'title' should map to the 'name' field.
+        - 'Product Name', 'Item', 'title' should map to 'name' field.
         - 'Cost', 'Purchase Price', 'Buy Price', 'costPrice' should map to 'purchasePrice'.
         - 'Price', 'Selling Price', 'Retail Price', 'sellPrice' should map to 'sellingPrice'.
         - 'Units Sold', 'Weekly Sales', 'Qty Sold', 'unitsSoldWeek' should map to 'unitsSoldWeek'.
 
+        **CRITICAL: Data may be incomplete.** You must handle missing fields gracefully to avoid errors.
+        - The 'name' and 'sellingPrice' fields are essential. If a row does not contain enough information to determine a name and a selling price, **you must skip that row**.
+        - If 'purchasePrice' is missing or cannot be determined, **default it to 0**.
+        - If 'unitsSoldWeek' is missing or cannot be determined, **default it to 0**.
+
         Ignore any currency symbols (like $), thousands separators (like ,), or extra whitespace in numbers. Extract only the numerical values.
-        If a row is clearly a header or completely malformed, ignore it. Only return entries that have all the required product data.
+        If a row is clearly a header or completely malformed, ignore it. Only return entries that contain at least a valid 'name' and 'sellingPrice'.
 
         --- DATA ---
         ${fileContent}
         --- END DATA ---
 
-        Return ONLY the structured JSON array adhering to the provided schema.
+        Return ONLY the structured JSON array adhering to the provided schema. If no valid products can be extracted, return an empty "products" array.
     `;
     
     try {
@@ -238,7 +398,7 @@ export const generateFullPdfReportContent = async (
 
         For the 'strategicRecommendations' section, provide a detailed analysis for each recommendation. This should include:
         1.  **Recommendation**: The specific, actionable advice.
-        2.  **Impact**: A quantified estimate of the potential positive impact or ROI. Be realistic based on the data. For example, "Could increase category profit by ~$50/week" or "Potential to lift overall margin by 1-2%."
+        2.  **Impact**: A quantified estimate of the a potential positive impact or ROI. Be realistic based on the data. For example, "Could increase category profit by ~$50/week" or "Potential to lift overall margin by 1-2%."
         3.  **Risk**: A brief assessment of the primary risk and its potential mitigation. For example, "Low risk, monitor stock levels to avoid shortages" or "Medium risk of cannibalizing sales from product Y."
     `;
 
@@ -356,13 +516,11 @@ export const getSalesForecastAndSuggestions = async (products: CalculatedProduct
 
         const jsonStr = response.text.trim();
         const parsed = JSON.parse(jsonStr);
-        // FIX: Ensure the map is strongly typed and handle potential missing forecasts from the API response.
         const forecastMap = new Map<number, number>(
             parsed.forecasts?.map((f: { id: number; forecastedSales: number; }) => [f.id, f.forecastedSales]) || []
         );
 
         return products.map(p => {
-            // FIX: Use nullish coalescing for a safer fallback. `forecastedSales` is now guaranteed to be a number.
             const forecastedSales = forecastMap.get(p.id) ?? p.unitsSoldWeek; // Default to current sales if no forecast
             const stock = p.stockLevel || 0;
             const reorderAmount = Math.max(0, forecastedSales - stock);
@@ -419,4 +577,66 @@ export const getBusinessOverviewStream = async (
         }
     }
     return stream();
+};
+
+export const extractWebData = async (products: CalculatedProduct[], query: string): Promise<{ headers: string[], data: (string|number)[][] }> => {
+    const productNames = products.map(p => p.name).slice(0, 10).join(', ');
+    const prompt = `
+        Act as a highly advanced, real-time web data extraction and analysis engine. Your primary goal is to provide the most accurate, up-to-the-minute, publicly available data from the web in a clean, structured format.
+
+        The user is a small retail store owner. Their current products for context include: ${productNames}.
+
+        **User Query:** "${query}"
+
+        **CRITICAL INSTRUCTIONS:**
+        1.  **Real-Time Data Focus:** Your top priority is to find the most current data. Synthesize information as if you were performing a live web search right now.
+        2.  **Website-Specific Extraction:** If the user's query includes a website URL (e.g., 'example.com'), you MUST recognize it and focus your data gathering on information originating from or directly related to that specific domain.
+        3.  **Accuracy and Sourcing:** Accuracy is paramount. For each row of data you provide, you should add a "Source" column containing the URL or a clear description of where the information was obtained (e.g., 'Product Page', 'Q4 2023 Financial Report'). This is crucial for user verification.
+        4.  **Enhanced Data Cleaning:** Rigorously clean and standardize all extracted data before outputting. This includes:
+            -   Converting all prices and numerical figures to pure numbers (e.g., remove '$', ',', '€').
+            -   Standardizing dates to 'YYYY-MM-DD' format if applicable.
+            -   Normalizing categorical text (e.g., map 'In Stock', 'Available' to a single 'In Stock' value).
+        5.  **Structured Output:** Format your response as a clean JSON object. This object must contain two keys: "headers" (an array of strings for column titles, which should include your new 'Source' column) and "data" (an array of arrays, where each inner array represents a row of data corresponding to the headers).
+        6.  **Concise Response:** Return ONLY the structured JSON object. Do not include any introductory text, explanations, or summaries outside of the JSON structure.
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        headers: {
+                            type: Type.ARRAY,
+                            items: { type: Type.STRING }
+                        },
+                        data: {
+                            type: Type.ARRAY,
+                            items: {
+                                type: Type.ARRAY,
+                                items: {
+                                    oneOf: [
+                                        { type: Type.STRING },
+                                        { type: Type.NUMBER }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    required: ["headers", "data"]
+                }
+            }
+        });
+
+        const jsonStr = response.text.trim();
+        const parsed = JSON.parse(jsonStr);
+        return parsed;
+
+    } catch (error) {
+        console.error("Error extracting web data:", error);
+        throw new Error("AI failed to extract web data. The query may be too complex or data may not be available.");
+    }
 };

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { TargetIcon, PencilIcon } from './Icons';
 
@@ -13,7 +12,7 @@ const GoalTrackerCard: React.FC<GoalTrackerCardProps> = ({ currentProfit, profit
     const isGoalMet = progress >= 100;
 
     return (
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-lg rounded-xl shadow-lg p-5">
+        <div className="bg-gradient-to-br from-white/80 to-gray-50/50 dark:from-gray-800/80 dark:to-gray-900/60 backdrop-blur-lg rounded-xl shadow-2xl p-5 border border-white/30 dark:border-white/10 transition-all duration-300 hover:scale-[1.02] hover:shadow-brand-primary/20">
             <div className="flex justify-between items-start">
                  <div className="flex items-start space-x-4">
                      <div className="flex-shrink-0 h-12 w-12 flex items-center justify-center rounded-full bg-brand-primary text-white">
@@ -39,7 +38,7 @@ const GoalTrackerCard: React.FC<GoalTrackerCardProps> = ({ currentProfit, profit
                 </div>
                 <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
                     <div
-                        className={`rounded-full h-2.5 transition-all duration-500 ease-out ${isGoalMet ? 'bg-brand-accent-profit' : 'bg-brand-primary'}`}
+                        className={`rounded-full h-2.5 transition-all duration-500 ease-out ${isGoalMet ? 'bg-gradient-to-r from-emerald-400 to-brand-accent-profit' : 'bg-gradient-to-r from-blue-600 to-brand-primary'}`}
                         style={{ width: `${progress}%` }}
                     ></div>
                 </div>

@@ -1,3 +1,5 @@
+
+
 import React, { useState } from 'react';
 import { WidgetConfig, WidgetId } from '../types';
 import Button from './Button';
@@ -6,6 +8,9 @@ import { XIcon, ChevronUpIcon, ChevronDownIcon, EyeIcon, EyeOffIcon } from './Ic
 
 
 const WIDGET_DEFINITIONS: Record<string, { id: WidgetId; name: string }[]> = {
+    leftColumn: [
+        { id: 'dataInput', name: 'Data Input Pane' },
+    ],
     main: [
         { id: 'complianceChecklist', name: 'Compliance Checklist' },
     ],
@@ -15,6 +20,7 @@ const WIDGET_DEFINITIONS: Record<string, { id: WidgetId; name: string }[]> = {
     aiAnalysisTab: [
         { id: 'geminiInsights', name: 'AI-Powered Insights' },
         { id: 'marketingSimulator', name: 'Marketing ROI Simulator' },
+        { id: 'aiKnowledgeBase', name: 'AI Knowledge Base' },
     ],
 };
 
@@ -119,7 +125,8 @@ const CustomizeDashboardModal: React.FC<CustomizeDashboardModalProps> = ({ confi
                     </button>
                 </div>
                 <div className="p-6 space-y-6 flex-grow overflow-y-auto">
-                    {renderGroup('Main Column Widgets', WIDGET_DEFINITIONS.main)}
+                    {renderGroup('Left Column Widgets', WIDGET_DEFINITIONS.leftColumn)}
+                    {renderGroup('Main Column Widgets (Below Inputs)', WIDGET_DEFINITIONS.main)}
                     {renderGroup('Dashboard Tab Widgets', WIDGET_DEFINITIONS.dashboardTab)}
                     {renderGroup('AI Analysis Tab Widgets', WIDGET_DEFINITIONS.aiAnalysisTab)}
                 </div>
