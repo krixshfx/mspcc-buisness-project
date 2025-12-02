@@ -25,6 +25,15 @@ const Header: React.FC<HeaderProps> = ({
     searchContainerRef 
 }) => {
     const [activeIndex, setActiveIndex] = useState(-1);
+    const [scrolled, setScrolled] = useState(false);
+
+    useEffect(() => {
+        const handleScroll = () => {
+            setScrolled(window.scrollY > 10);
+        };
+        window.addEventListener('scroll', handleScroll);
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, []);
 
     useEffect(() => {
         setActiveIndex(-1);
@@ -45,47 +54,47 @@ const Header: React.FC<HeaderProps> = ({
                 onSuggestionSelect(suggestions[activeIndex]);
             }
         } else if (e.key === 'Escape') {
-            onSearchChange(''); // Effectively clears suggestions
+            onSearchChange(''); 
         }
     };
 
     return (
-        <header className="bg-gradient-to-b from-white/90 to-white/70 dark:from-gray-900/90 dark:to-gray-900/70 backdrop-blur-lg shadow-md sticky top-0 z-20 border-b border-white/20 dark:border-white/10">
-            <div className="container mx-auto px-4 md:px-6 py-3 flex justify-between items-center">
+        <header className={`sticky top-0 z-30 transition-all duration-500 ease-in-out ${scrolled ? 'bg-white/70 dark:bg-gray-900/80 backdrop-blur-xl shadow-lg border-b border-gray-200/50 dark:border-gray-800/50 py-3' : 'bg-transparent py-5'}`}>
+            <div className="container mx-auto px-4 md:px-6 flex justify-between items-center">
                 {/* Left Side */}
-                <div className="flex items-center space-x-3">
-                     <div className="p-2 bg-brand-primary rounded-lg text-white">
+                <div className="flex items-center space-x-3 group cursor-pointer">
+                     <div className="flex items-center justify-center h-11 w-11 rounded-2xl bg-gradient-to-tr from-brand-primary to-blue-600 text-white shadow-lg shadow-blue-500/30 group-hover:shadow-blue-500/50 transition-all duration-300 transform group-hover:scale-105 group-hover:rotate-3">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                         </svg>
                      </div>
-                    <h1 className="text-xl md:text-2xl font-bold font-display text-brand-primary dark:text-gray-200 hidden sm:block">MSPCC Dashboard</h1>
+                    <span className="text-2xl font-bold font-display text-gray-900 dark:text-white hidden sm:block tracking-tight group-hover:text-brand-primary dark:group-hover:text-blue-400 transition-colors">MSPCC<span className="text-brand-primary">.ai</span></span>
                 </div>
 
                 {/* Center Search */}
-                <div className="flex-1 flex justify-center px-4">
-                    <div ref={searchContainerRef} className="relative w-full max-w-md">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <SearchIcon className="text-gray-400" />
+                <div className="flex-1 flex justify-center px-4 max-w-xl mx-auto">
+                    <div ref={searchContainerRef} className="relative w-full group">
+                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                            <SearchIcon className="text-gray-400 group-focus-within:text-brand-primary transition-colors h-5 w-5" />
                         </div>
                         <input
                             type="text"
-                            placeholder="Search products..."
+                            placeholder="Search products, suppliers..."
                             value={searchTerm}
                             onChange={(e) => onSearchChange(e.target.value)}
                             onKeyDown={handleKeyDown}
                             autoComplete="off"
-                            className="block w-full bg-gray-100 dark:bg-gray-800 border-transparent rounded-full py-2 pl-10 pr-4 text-brand-text-primary dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-primary/50 focus:border-transparent transition"
+                            className="block w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl py-3 pl-11 pr-4 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-primary/50 focus:border-brand-primary transition-all shadow-sm group-focus-within:shadow-lg group-focus-within:w-full"
                         />
                         {suggestions.length > 0 && (
-                            <ul className="absolute mt-2 w-full bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg rounded-xl shadow-lg overflow-hidden z-10 border border-gray-200 dark:border-gray-700">
+                            <ul className="absolute mt-3 w-full bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden z-20 border border-gray-100 dark:border-gray-700 animate-fade-in-up">
                                 {suggestions.map((suggestion, index) => (
                                     <li 
                                         key={suggestion}
-                                        className={`px-4 py-2 cursor-pointer text-sm font-medium transition-colors ${
+                                        className={`px-5 py-3.5 cursor-pointer text-sm font-medium transition-colors border-b border-gray-50 dark:border-gray-700 last:border-0 ${
                                             index === activeIndex 
-                                            ? 'bg-brand-primary text-white' 
-                                            : 'text-brand-text-primary dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700'
+                                            ? 'bg-blue-50 dark:bg-blue-900/30 text-brand-primary dark:text-blue-300' 
+                                            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
                                         }`}
                                         onClick={() => onSuggestionSelect(suggestion)}
                                         onMouseEnter={() => setActiveIndex(index)}
@@ -99,16 +108,17 @@ const Header: React.FC<HeaderProps> = ({
                 </div>
 
                  {/* Right Side */}
-                 <div className="flex items-center space-x-1">
-                     <HeaderButton onClick={onForecastClick} aria-label="Generate sales forecast">
+                 <div className="flex items-center space-x-2">
+                     <HeaderButton onClick={onForecastClick} aria-label="Generate sales forecast" tooltip="Sales Forecast">
                         <ClipboardListIcon />
                     </HeaderButton>
-                     <HeaderButton onClick={onCustomizeClick} aria-label="Customize dashboard layout">
+                     <HeaderButton onClick={onCustomizeClick} aria-label="Customize dashboard layout" tooltip="Layout Settings">
                         <CogIcon />
                     </HeaderButton>
-                    <HeaderButton onClick={toggleTheme} aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}>
+                    <HeaderButton onClick={toggleTheme} aria-label="Toggle theme" tooltip="Toggle Theme">
                         {theme === 'light' ? <MoonIcon /> : <SunIcon />}
                     </HeaderButton>
+                    <div className="h-8 w-[1px] bg-gray-200 dark:bg-gray-700 mx-2 hidden sm:block"></div>
                      <HeaderButton onClick={() => {}} aria-label="User profile">
                         <UserCircleIcon />
                     </HeaderButton>
@@ -118,10 +128,11 @@ const Header: React.FC<HeaderProps> = ({
     );
 };
 
-const HeaderButton: React.FC<{onClick: () => void, "aria-label": string, children: React.ReactNode}> = ({ onClick, "aria-label": ariaLabel, children }) => (
+const HeaderButton: React.FC<{onClick: () => void, "aria-label": string, children: React.ReactNode, tooltip?: string}> = ({ onClick, "aria-label": ariaLabel, children, tooltip }) => (
     <button
         onClick={onClick}
-        className="p-2 rounded-full text-brand-text-secondary dark:text-gray-400 hover:bg-gray-200/70 dark:hover:bg-gray-700/70 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary dark:focus:ring-offset-gray-800 transition-colors"
+        title={tooltip}
+        className="p-2.5 rounded-xl text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-brand-primary dark:hover:text-blue-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-primary/20"
         aria-label={ariaLabel}
     >
         {children}

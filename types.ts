@@ -59,23 +59,47 @@ export interface WidgetState {
 
 export type WidgetConfig = Record<WidgetId, WidgetState>;
 
-export interface ReportData {
-    reportContent: {
-        executiveSummary: string;
-        kpiAnalysis: string;
-        performanceHighlights: string[];
-        areasForImprovement: string[];
-        strategicRecommendations: {
-            recommendation: string;
-            impact: string;
-            risk: string;
-        }[];
+export interface DetailedReportContent {
+    reportTitle: string;
+    reportDate: string;
+    executiveSummary: {
+        overview: string;
+        keyMetrics: { label: string; value: string; status: 'Positive' | 'Neutral' | 'Negative' }[];
     };
+    dataQuality: {
+        summary: string;
+        score: 'Excellent' | 'Good' | 'Fair' | 'Poor';
+        checks: { metric: string; status: 'Pass' | 'Fail' | 'Warning'; details: string }[];
+    };
+    categoryAnalysis: {
+        category: string;
+        revenue: number;
+        profit: number;
+        margin: number;
+        itemCount: number;
+    }[];
+    marketAnalysis: {
+        topPerformers: string[];
+        underPerformers: string[];
+        opportunityGaps: string[];
+    };
+    strategicRecommendations: {
+        title: string;
+        description: string;
+        priority: 'High' | 'Medium' | 'Low';
+        impact: string;
+    }[];
+    conclusion: string;
+}
+
+export interface ReportData {
+    reportContent: DetailedReportContent;
     metrics: {
         totalWeeklyProfit: number;
         totalWeeklyRevenue: number;
         topProductByProfit?: CalculatedProduct | null;
         averageMargin: number;
+        profitTrend: number[];
     };
     products: CalculatedProduct[];
     aiInsights: AIInsight[];

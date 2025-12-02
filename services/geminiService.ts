@@ -1,7 +1,7 @@
 
 
 import { GoogleGenAI, Type } from '@google/genai';
-import { CalculatedProduct, ComplianceTask, Product, ForecastedProduct, ReportData, ChartData } from '../types';
+import { CalculatedProduct, ComplianceTask, Product, ForecastedProduct, ReportData, ChartData, DetailedReportContent } from '../types';
 
 if (!process.env.API_KEY) {
     throw new Error("API_KEY environment variable not set");
@@ -374,32 +374,60 @@ export const parseUnstructuredData = async (fileContent: string): Promise<Omit<P
 };
 
 export const generateFullPdfReportContent = async (
-    metrics: ReportData['metrics'],
+    metrics: { totalWeeklyProfit: number; totalWeeklyRevenue: number; topProductByProfit?: CalculatedProduct | null; averageMargin: number; },
     products: CalculatedProduct[]
-): Promise<ReportData['reportContent']> => {
-    const dataStr = formatProductDataForPrompt(products.slice(0, 20)); // Limit data sent for prompt efficiency
+): Promise<DetailedReportContent> => {
+    
+    // 1. Calculate Aggregations Locally to pass to Gemini (ensures data accuracy)
+    const categoryMap = new Map<string, { revenue: number, profit: number, count: number }>();
+    products.forEach(p => {
+        const cat = p.category || 'Uncategorized';
+        const current = categoryMap.get(cat) || { revenue: 0, profit: 0, count: 0 };
+        categoryMap.set(cat, {
+            revenue: current.revenue + p.weeklyRevenue,
+            profit: current.profit + p.weeklyProfit,
+            count: current.count + 1
+        });
+    });
+    
+    const categoryStats = Array.from(categoryMap.entries()).map(([category, stats]) => ({
+        category,
+        revenue: stats.revenue,
+        profit: stats.profit,
+        margin: stats.revenue > 0 ? (stats.profit / stats.revenue) * 100 : 0,
+        itemCount: stats.count
+    }));
+
+    const dataStr = formatProductDataForPrompt(products.slice(0, 30)); // Send top 30 products for detail
+    
     const prompt = `
-        Act as a professional senior business analyst creating an executive report.
-        You will be given key performance indicators (KPIs) and a detailed product list for the current period.
-        Your task is to generate a structured JSON object containing a full, insightful, and narrative-driven analysis with a professional yet conversational tone. Tell a story with the data.
-
-        --- KPIs ---
-        Total Weekly Profit: $${metrics.totalWeeklyProfit.toFixed(2)}
-        Total Weekly Revenue: $${metrics.totalWeeklyRevenue.toFixed(2)}
-        Top Product by Profit: ${metrics.topProductByProfit?.name || 'N/A'} ($${metrics.topProductByProfit?.weeklyProfit.toFixed(2)} profit)
-        Average Profit Margin: ${metrics.averageMargin.toFixed(1)}%
-        --- END KPIs ---
-
-        --- DETAILED PRODUCT DATA (Sample) ---
+        Act as a professional Senior Business Analyst preparing a comprehensive "Weekly Performance Audit Report" for a retail business owner.
+        
+        You have access to the following aggregated data and a sample of product details.
+        
+        --- AGGREGATED METRICS ---
+        Total Revenue: $${metrics.totalWeeklyRevenue.toFixed(2)}
+        Total Profit: $${metrics.totalWeeklyProfit.toFixed(2)}
+        Avg Margin: ${metrics.averageMargin.toFixed(1)}%
+        Active SKUs: ${products.length}
+        Top Product: ${metrics.topProductByProfit?.name} ($${metrics.topProductByProfit?.weeklyProfit.toFixed(2)} profit)
+        
+        --- CATEGORY PERFORMANCE ---
+        ${JSON.stringify(categoryStats)}
+        
+        --- PRODUCT SAMPLE (Top 30) ---
         ${dataStr}
-        --- END DETAILED PRODUCT DATA ---
-
-        Generate the structured analysis now. Ensure each section is concise, professional, and directly derived from the data provided.
-
-        For the 'strategicRecommendations' section, provide a detailed analysis for each recommendation. This should include:
-        1.  **Recommendation**: The specific, actionable advice.
-        2.  **Impact**: A quantified estimate of the a potential positive impact or ROI. Be realistic based on the data. For example, "Could increase category profit by ~$50/week" or "Potential to lift overall margin by 1-2%."
-        3.  **Risk**: A brief assessment of the primary risk and its potential mitigation. For example, "Low risk, monitor stock levels to avoid shortages" or "Medium risk of cannibalizing sales from product Y."
+        
+        **Your Task:**
+        Generate a strictly structured JSON object for the report. The tone should be professional, insightful, and data-driven.
+        
+        **Requirements for Specific Sections:**
+        1. **Executive Summary**: A high-level narrative of the business health.
+        2. **Data Quality**: Analyze the provided product data for completeness (e.g., missing categories, suppliers, low stock). Rate the quality.
+        3. **Market Analysis**: Identify top performers and underperformers based on the data.
+        4. **Strategic Recommendations**: Provide high-impact advice. Assign a priority (High/Medium/Low) and estimated impact.
+        
+        Return ONLY the JSON object matching the schema.
     `;
 
     try {
@@ -411,54 +439,92 @@ export const generateFullPdfReportContent = async (
                 responseSchema: {
                     type: Type.OBJECT,
                     properties: {
+                        reportTitle: { type: Type.STRING },
+                        reportDate: { type: Type.STRING },
                         executiveSummary: {
-                            type: Type.STRING,
-                            description: "A single, high-level paragraph summarizing the week's performance, mentioning profit, top products, and overall business health."
+                            type: Type.OBJECT,
+                            properties: {
+                                overview: { type: Type.STRING },
+                                keyMetrics: {
+                                    type: Type.ARRAY,
+                                    items: {
+                                        type: Type.OBJECT,
+                                        properties: {
+                                            label: { type: Type.STRING },
+                                            value: { type: Type.STRING },
+                                            status: { type: Type.STRING, enum: ['Positive', 'Neutral', 'Negative'] }
+                                        },
+                                        required: ["label", "value", "status"]
+                                    }
+                                }
+                            },
+                            required: ["overview", "keyMetrics"]
                         },
-                        kpiAnalysis: {
-                            type: Type.STRING,
-                            description: "A short paragraph expanding on the KPIs. What does the profit margin indicate? Why is the top product's performance significant?"
+                        dataQuality: {
+                            type: Type.OBJECT,
+                            properties: {
+                                summary: { type: Type.STRING },
+                                score: { type: Type.STRING, enum: ['Excellent', 'Good', 'Fair', 'Poor'] },
+                                checks: {
+                                    type: Type.ARRAY,
+                                    items: {
+                                        type: Type.OBJECT,
+                                        properties: {
+                                            metric: { type: Type.STRING },
+                                            status: { type: Type.STRING, enum: ['Pass', 'Fail', 'Warning'] },
+                                            details: { type: Type.STRING }
+                                        },
+                                        required: ["metric", "status", "details"]
+                                    }
+                                }
+                            },
+                            required: ["summary", "score", "checks"]
                         },
-                        performanceHighlights: {
+                        categoryAnalysis: {
                             type: Type.ARRAY,
-                            description: "A list of 2-3 key positive observations from the data (e.g., specific products with high margins, successful categories).",
-                            items: { type: Type.STRING }
-                        },
-                        areasForImprovement: {
-                            type: Type.ARRAY,
-                            description: "A list of 2-3 potential risks or areas for improvement (e.g., underperforming products, low-margin items with high sales).",
-                            items: { type: Type.STRING }
-                        },
-                        strategicRecommendations: {
-                           type: Type.ARRAY,
-                            description: "A list of 2-3 actionable, forward-looking recommendations, each with an impact assessment and risk analysis.",
                             items: {
                                 type: Type.OBJECT,
                                 properties: {
-                                    recommendation: {
-                                        type: Type.STRING,
-                                        description: "The core strategic recommendation (e.g., 'Promote high-margin products')."
-                                    },
-                                    impact: {
-                                        type: Type.STRING,
-                                        description: "A brief, quantified estimate of the potential positive impact or ROI (e.g., 'Potential to increase overall profit by 5-10%')."
-                                    },
-                                    risk: {
-                                        type: Type.STRING,
-                                        description: "A brief assessment of the primary risk associated with this recommendation (e.g., 'Low risk, but requires monitoring competitor pricing.')."
-                                    }
+                                    category: { type: Type.STRING },
+                                    revenue: { type: Type.NUMBER },
+                                    profit: { type: Type.NUMBER },
+                                    margin: { type: Type.NUMBER },
+                                    itemCount: { type: Type.NUMBER }
                                 },
-                                required: ["recommendation", "impact", "risk"]
+                                required: ["category", "revenue", "profit", "margin", "itemCount"]
                             }
-                        }
+                        },
+                        marketAnalysis: {
+                            type: Type.OBJECT,
+                            properties: {
+                                topPerformers: { type: Type.ARRAY, items: { type: Type.STRING } },
+                                underPerformers: { type: Type.ARRAY, items: { type: Type.STRING } },
+                                opportunityGaps: { type: Type.ARRAY, items: { type: Type.STRING } }
+                            },
+                            required: ["topPerformers", "underPerformers", "opportunityGaps"]
+                        },
+                        strategicRecommendations: {
+                            type: Type.ARRAY,
+                            items: {
+                                type: Type.OBJECT,
+                                properties: {
+                                    title: { type: Type.STRING },
+                                    description: { type: Type.STRING },
+                                    priority: { type: Type.STRING, enum: ['High', 'Medium', 'Low'] },
+                                    impact: { type: Type.STRING }
+                                },
+                                required: ["title", "description", "priority", "impact"]
+                            }
+                        },
+                        conclusion: { type: Type.STRING }
                     },
-                    required: ["executiveSummary", "kpiAnalysis", "performanceHighlights", "areasForImprovement", "strategicRecommendations"]
+                    required: ["reportTitle", "reportDate", "executiveSummary", "dataQuality", "categoryAnalysis", "marketAnalysis", "strategicRecommendations", "conclusion"]
                 },
             },
         });
         
         const jsonStr = response.text.trim();
-        return JSON.parse(jsonStr) as ReportData['reportContent'];
+        return JSON.parse(jsonStr) as DetailedReportContent;
 
     } catch (error) {
         console.error("Error generating PDF report content:", error);

@@ -7,22 +7,29 @@ interface CardProps {
     children: React.ReactNode;
     className?: string;
     badge?: React.ReactNode;
+    noPadding?: boolean;
 }
 
-const Card: React.FC<CardProps> = ({ title, icon, actions, children, className = '', badge }) => {
+const Card: React.FC<CardProps> = ({ title, icon, actions, children, className = '', badge, noPadding = false }) => {
     return (
-        <div className={`bg-gradient-to-br from-white/70 to-white/50 dark:from-gray-800/80 dark:to-gray-900/60 backdrop-blur-lg rounded-xl shadow-2xl border border-white/20 dark:border-white/10 transition-all duration-300 hover:shadow-brand-primary/20 ${className}`}>
-            <div className="p-5 border-b border-gray-200/80 dark:border-gray-700/80 flex items-center justify-between">
+        <div className={`glass-effect rounded-3xl shadow-sm flex flex-col transition-all duration-300 hover:shadow-xl dark:hover:shadow-black/20 overflow-hidden ${className}`}>
+            <div className={`px-6 py-5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between flex-shrink-0 bg-white/40 dark:bg-gray-800/40`}>
                 <div className="flex items-center space-x-3 min-w-0">
-                    {icon && <span className="text-brand-primary dark:text-brand-accent-profit">{icon}</span>}
-                    <div className="flex items-center space-x-2 min-w-0">
-                        <h2 className="text-lg font-bold font-display text-brand-primary dark:text-gray-200 truncate">{title}</h2>
+                    {icon && (
+                        <div className="p-2.5 rounded-xl bg-white dark:bg-gray-800 text-brand-primary dark:text-blue-400 shadow-sm ring-1 ring-black/5 dark:ring-white/10">
+                            {icon}
+                        </div>
+                    )}
+                    <div className="flex items-center space-x-3 min-w-0">
+                        <h2 className="text-lg font-bold font-display text-gray-800 dark:text-gray-100 truncate tracking-tight">{title}</h2>
                         {badge && <div>{badge}</div>}
                     </div>
                 </div>
                 {actions && <div className="flex-shrink-0 ml-4">{actions}</div>}
             </div>
-            {children}
+            <div className={`flex-grow ${noPadding ? '' : 'p-6'}`}>
+                {children}
+            </div>
         </div>
     );
 };

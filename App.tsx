@@ -31,10 +31,6 @@ type Tab = 'dashboard' | 'ai_analysis';
 
 /**
  * Performs a fuzzy search to check if a needle is a subsequence of the haystack.
- * This is good for partial matches and typos with missing letters.
- * @param needle The search term.
- * @param haystack The text to search within.
- * @returns True if the needle is a subsequence of the haystack.
  */
 const fuzzySearch = (needle: string, haystack: string): boolean => {
     if (!needle) return true;
@@ -43,12 +39,8 @@ const fuzzySearch = (needle: string, haystack: string): boolean => {
     const hlen = haystack.length;
     const nlen = needle.length;
 
-    if (nlen > hlen) {
-        return false;
-    }
-    if (nlen === hlen) {
-        return needle === haystack;
-    }
+    if (nlen > hlen) return false;
+    if (nlen === hlen) return needle === haystack;
 
     outer: for (let i = 0, j = 0; i < nlen; i++) {
         const nch = needle[i];
@@ -183,7 +175,6 @@ const App: React.FC = () => {
             const weeklyProfit = (p.sellingPrice - p.purchasePrice) * p.unitsSoldWeek;
             const weeklyRevenue = p.sellingPrice * p.unitsSoldWeek;
             const inventoryTurnover = p.stockLevel && p.stockLevel > 0 ? p.unitsSoldWeek / p.stockLevel : 0;
-            
             const unitsInStock = p.stockLevel || 0;
             const beginningInventory = p.unitsSoldWeek + unitsInStock;
             const sellThroughRate = beginningInventory > 0 ? (p.unitsSoldWeek / beginningInventory) * 100 : 0;
@@ -204,25 +195,12 @@ const App: React.FC = () => {
         const searchTokens = lowercasedSearchTerm.split(/\s+/).filter(Boolean);
 
         return calculatedProducts.filter(p => {
-            // First, check if the category filter from the chart is active.
             const categoryMatch = selectedCategory ? p.category === selectedCategory : true;
-            if (!categoryMatch) {
-                return false;
-            }
+            if (!categoryMatch) return false;
 
-            // If no search term, return all (or category-filtered) products.
-            if (searchTokens.length === 0) {
-                return true;
-            }
+            if (searchTokens.length === 0) return true;
 
-            // Combine product fields into a single searchable string.
-            const searchableText = [
-                p.name,
-                p.category,
-                p.supplier
-            ].filter(Boolean).join(' ').toLowerCase();
-
-            // All search tokens must be found within the searchable text using fuzzy matching.
+            const searchableText = [p.name, p.category, p.supplier].filter(Boolean).join(' ').toLowerCase();
             return searchTokens.every(token => fuzzySearch(token, searchableText));
         });
     }, [calculatedProducts, searchTerm, selectedCategory]);
@@ -261,9 +239,7 @@ const App: React.FC = () => {
                 setAiOverviewContent("<p>Add some products to get started with AI analysis.</p>");
                 return;
             }
-            
-            setAiOverviewContent(''); // Clear previous content
-            
+            setAiOverviewContent('');
             try {
                 const stream = await getBusinessOverviewStream(dashboardMetrics, calculatedProducts);
                 for await (const chunk of stream) {
@@ -283,7 +259,7 @@ const App: React.FC = () => {
         return () => {
             isCancelled = true;
         };
-    }, [calculatedProducts, dashboardMetrics]); // Re-run when product data changes
+    }, [calculatedProducts, dashboardMetrics]);
 
 
     const toggleTheme = () => {
@@ -324,8 +300,8 @@ const App: React.FC = () => {
             const matches = calculatedProducts
                 .filter(p => p.name.toLowerCase().includes(term.toLowerCase()))
                 .map(p => p.name)
-                .filter(name => name.toLowerCase() !== term.toLowerCase()) // Don't suggest the exact match
-                .slice(0, 5); // Limit suggestions
+                .filter(name => name.toLowerCase() !== term.toLowerCase())
+                .slice(0, 5);
             setSuggestions(matches);
         } else {
             setSuggestions([]);
@@ -342,7 +318,6 @@ const App: React.FC = () => {
             alert('No data to export.');
             return;
         }
-
         if (window.confirm('Are you sure you want to export the current view as a CSV file?')) {
             const dataToExport = filteredProducts.map(p => ({
                 id: p.id,
@@ -382,14 +357,12 @@ const App: React.FC = () => {
         setIsGeneratingReport(true);
         try {
             const reportContent = await generateFullPdfReportContent(dashboardMetrics, filteredProducts);
-            
             await generatePdfReport({
                 reportContent,
                 metrics: dashboardMetrics,
                 products: filteredProducts,
                 aiInsights: aiKnowledge,
             });
-
         } catch (error) {
             console.error("Failed to generate PDF report:", error);
             alert(`Sorry, there was an error creating the PDF report: ${error instanceof Error ? error.message : String(error)}`);
@@ -407,7 +380,6 @@ const App: React.FC = () => {
             setForecastData(forecast);
         } catch (error) {
             console.error("Failed to generate forecast", error);
-            // We can show an error in the modal itself.
         } finally {
             setIsGeneratingForecast(false);
         }
@@ -447,24 +419,17 @@ const App: React.FC = () => {
             fields: extractedData.headers,
             data: extractedData.data
         });
-
         const newProducts = await parseUnstructuredData(csvString);
-
         if (!newProducts || newProducts.length === 0) {
             throw new Error("The extracted data does not contain recognizable product information (like 'name' and 'price'). Please extract data that can be mapped to your product list.");
         }
-
         loadProducts(newProducts);
         return newProducts.length;
     };
     
     const formatLargeNumber = (num: number): string => {
-        if (num >= 10000000) { // 1 Crore
-            return `$${(num / 10000000).toFixed(2)} Cr`;
-        }
-        if (num >= 100000) { // 1 Lakh
-            return `$${(num / 100000).toFixed(2)} L`;
-        }
+        if (num >= 10000000) return `$${(num / 10000000).toFixed(2)} Cr`;
+        if (num >= 100000) return `$${(num / 100000).toFixed(2)} L`;
         return `$${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     };
 
@@ -474,7 +439,7 @@ const App: React.FC = () => {
         return widgetComponents
             .filter((w) => widgetConfig[w.id]?.visible)
             .sort((a, b) => (widgetConfig[a.id]?.order || 0) - (widgetConfig[b.id]?.order || 0))
-            .map((w) => <React.Fragment key={w.id}>{w.component}</React.Fragment>);
+            .map((w) => <div key={w.id} className="animate-fade-in-up">{w.component}</div>);
     };
 
     const leftColumnWidgets = [
@@ -497,7 +462,7 @@ const App: React.FC = () => {
     ];
 
     return (
-        <div className="min-h-screen text-brand-text-primary dark:text-gray-200 font-sans">
+        <div className="min-h-screen font-sans bg-gradient-to-br from-brand-background to-gray-200 dark:from-brand-background-dark dark:to-gray-900">
             <Header 
                 theme={theme} 
                 toggleTheme={toggleTheme} 
@@ -509,16 +474,17 @@ const App: React.FC = () => {
                 onSuggestionSelect={handleSuggestionSelect}
                 searchContainerRef={searchContainerRef}
             />
-            <main className="container mx-auto p-4 md:p-6 lg:p-8">
+            <main className="container mx-auto p-4 md:p-6 lg:p-8 space-y-8 max-w-7xl">
 
                  {/* KPI Section */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-fade-in-up">
                     <KPICard 
                         title="Total Weekly Profit" 
                         value={formatLargeNumber(dashboardMetrics.totalWeeklyProfit)}
                         icon={<ChartTrendingUpIcon />}
                         trendData={dashboardMetrics.profitTrend}
                         tooltipFormatter={(value) => `$${(value as number).toFixed(2)}`}
+                        positive={dashboardMetrics.totalWeeklyProfit >= 0}
                     />
                     <GoalTrackerCard 
                         currentProfit={dashboardMetrics.totalWeeklyProfit}
@@ -526,45 +492,65 @@ const App: React.FC = () => {
                         onSetGoal={() => setIsSetGoalModalOpen(true)}
                     />
                     <KPICard 
-                        title="Average Profit Margin" 
+                        title="Average Margin" 
                         value={`${dashboardMetrics.averageMargin.toFixed(1)}%`}
                         icon={<TrendingUpIcon />}
                         trendData={dashboardMetrics.marginTrend}
                         tooltipFormatter={(value) => `${(value as number).toFixed(1)}%`}
+                        positive={dashboardMetrics.averageMargin >= 0}
                     />
                     <KPICard 
-                        title="Top Product (by Profit)" 
+                        title="Top Product" 
                         value={dashboardMetrics.topProductByProfit?.name || 'N/A'}
                         icon={<TrophyIcon />}
                         description={dashboardMetrics.topProductByProfit ? `${formatLargeNumber(dashboardMetrics.topProductByProfit.weeklyProfit)} profit` : 'No products found'}
                     />
                 </div>
 
-
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    {/* Left Column */}
-                    <div className="lg:col-span-1 flex flex-col gap-8">
+                <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
+                    {/* Left Sidebar (Input & Tools) */}
+                    <div className="xl:col-span-4 flex flex-col gap-6 order-2 xl:order-1">
                         {renderWidgets(leftColumnWidgets)}
                         <DataUpload loadProducts={loadProducts} />
                         {renderWidgets(mainColumnWidgets)}
                     </div>
 
-                    {/* Right Column */}
-                    <div className="lg:col-span-2 flex flex-col gap-8">
+                    {/* Main Content Area */}
+                    <div className="xl:col-span-8 flex flex-col gap-6 order-1 xl:order-2">
                         {products.length > 0 ? (
                             <>
-                                <div className="bg-gradient-to-br from-white/60 to-white/40 dark:from-gray-800/70 dark:to-gray-900/50 backdrop-blur-lg rounded-xl shadow-inner-lg border border-white/20 dark:border-white/10 p-2">
-                                    <nav className="flex space-x-2" aria-label="Tabs">
-                                        <TabButton name="Dashboard" isActive={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
-                                        <TabButton name="AI Analysis" isActive={activeTab === 'ai_analysis'} onClick={() => setActiveTab('ai_analysis')} />
-                                    </nav>
+                                {/* Segmented Control Tab Navigation */}
+                                <div className="flex justify-center xl:justify-start mb-2">
+                                     <div className="bg-gray-200/50 dark:bg-gray-800/50 p-1.5 rounded-2xl inline-flex shadow-inner backdrop-blur-md">
+                                        <button
+                                            onClick={() => setActiveTab('dashboard')}
+                                            className={`px-8 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 ease-out ${
+                                                activeTab === 'dashboard' 
+                                                ? 'bg-white dark:bg-brand-primary text-brand-primary dark:text-white shadow-md transform scale-105' 
+                                                : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-300'
+                                            }`}
+                                        >
+                                            Dashboard
+                                        </button>
+                                        <button
+                                            onClick={() => setActiveTab('ai_analysis')}
+                                            className={`px-8 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 ease-out ${
+                                                activeTab === 'ai_analysis' 
+                                                ? 'bg-white dark:bg-brand-primary text-brand-primary dark:text-white shadow-md transform scale-105' 
+                                                : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-300'
+                                            }`}
+                                        >
+                                            AI Analysis
+                                        </button>
+                                    </div>
                                 </div>
 
                                 {activeTab === 'dashboard' && (
-                                     <div className="flex flex-col gap-8 animate-fade-in">
+                                     <div className="flex flex-col gap-6 animate-fade-in-up">
                                         <Card 
-                                            title="Product Performance" 
+                                            title="Product Inventory & Performance" 
                                             icon={<ChartBarIcon />}
+                                            noPadding={true}
                                             actions={
                                                 <ExportDropdown 
                                                     onExportCsv={handleExportCsv}
@@ -572,15 +558,13 @@ const App: React.FC = () => {
                                                 />
                                             }
                                         >
-                                            <div className="p-1 md:p-2">
-                                                <ProductDataTable 
-                                                    products={filteredProducts} 
-                                                    removeProduct={removeProduct}
-                                                    editProduct={handleEditProduct}
-                                                    hoveredProductId={hoveredProductId}
-                                                    setHoveredProductId={setHoveredProductId}
-                                                />
-                                            </div>
+                                            <ProductDataTable 
+                                                products={filteredProducts} 
+                                                removeProduct={removeProduct}
+                                                editProduct={handleEditProduct}
+                                                hoveredProductId={hoveredProductId}
+                                                setHoveredProductId={setHoveredProductId}
+                                            />
                                         </Card>
                                         <div>
                                             {renderWidgets(dashboardTabWidgets)}
@@ -589,19 +573,21 @@ const App: React.FC = () => {
                                 )}
 
                                 {activeTab === 'ai_analysis' && (
-                                    <div className="flex flex-col gap-8 animate-fade-in">
+                                    <div className="flex flex-col gap-6 animate-fade-in-up">
                                         {renderWidgets(aiAnalysisTabWidgets)}
                                     </div>
                                 )}
                             </>
                         ) : (
                              <Card title="Welcome to Your Dashboard!" icon={<SparklesIcon/>}>
-                                <div className="p-8 text-center">
-                                     <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-brand-primary/10 mb-5">
-                                        <SparklesIcon className="h-8 w-8 text-brand-primary" />
+                                <div className="p-12 text-center">
+                                     <div className="mx-auto flex items-center justify-center h-24 w-24 rounded-full bg-blue-50 dark:bg-blue-900/20 mb-6 animate-pulse ring-4 ring-blue-100 dark:ring-blue-800/20">
+                                        <SparklesIcon className="h-12 w-12 text-brand-primary" />
                                     </div>
-                                    <h3 className="text-xl font-display font-medium text-brand-primary dark:text-white">Your Dashboard is Ready</h3>
-                                    <p className="text-brand-text-secondary dark:text-gray-400 mt-2 max-w-sm mx-auto">Add a product manually or upload a file using the forms on the left to begin your analysis.</p>
+                                    <h3 className="text-3xl font-display font-bold text-gray-900 dark:text-white">Your Dashboard is Ready</h3>
+                                    <p className="text-gray-500 dark:text-gray-400 mt-4 max-w-lg mx-auto text-lg leading-relaxed">
+                                        Add your first product manually or upload a file using the tools on the left to unlock powerful AI insights and start optimizing your business.
+                                    </p>
                                 </div>
                             </Card>
                         )}
@@ -644,26 +630,17 @@ const App: React.FC = () => {
                 />
             )}
             {isGeneratingReport && (
-                <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex flex-col items-center justify-center text-white">
-                    <Spinner />
-                    <h3 className="mt-4 text-lg font-semibold font-display">Generating Your Report...</h3>
-                    <p className="text-sm">Please wait, the AI is analyzing your data.</p>
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex flex-col items-center justify-center text-white animate-fade-in-up">
+                    <div className="bg-white/10 p-8 rounded-3xl border border-white/20 shadow-2xl flex flex-col items-center">
+                        <Spinner />
+                        <h3 className="mt-6 text-2xl font-bold font-display">Generating Report...</h3>
+                        <p className="text-gray-200 mt-2 text-center max-w-xs">Gemini AI is analyzing your data to create a comprehensive PDF.</p>
+                    </div>
                 </div>
             )}
             <Footer />
         </div>
     );
 };
-
-const TabButton: React.FC<{ name: string; isActive: boolean; onClick: () => void }> = ({ name, isActive, onClick }) => (
-    <button
-        onClick={onClick}
-        className={`${
-            isActive ? 'bg-gradient-to-br from-brand-primary to-brand-primary-dark text-white shadow-lg ring-2 ring-white/10' : 'text-brand-text-secondary dark:text-gray-400 hover:text-brand-primary dark:hover:text-white hover:bg-gray-200/50 dark:hover:bg-gray-700/50'
-        } rounded-lg px-4 py-2 text-sm font-bold font-display transition-all duration-200 ease-in-out`}
-    >
-        {name}
-    </button>
-);
 
 export default App;

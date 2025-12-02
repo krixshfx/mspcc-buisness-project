@@ -1,7 +1,5 @@
-
-
 import React, { useMemo, useState } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, PieChart, Pie, ComposedChart, Scatter, LabelList, Line, ScatterChart, Sector } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, ComposedChart, Scatter, ScatterChart, Area, Line } from 'recharts';
 import { CalculatedProduct } from '../types';
 import Card from './shared/Card';
 import { PresentationChartLineIcon, BriefcaseIcon, DairyIcon, BakeryIcon, PantryIcon, DrinksIcon, ProduceIcon, GenericProductIcon, XCircleIcon, ChartBarIcon, LineChartIcon, ScatterChartIcon, ArrowsPointingOutIcon, ArrowsPointingInIcon } from './Icons';
@@ -20,21 +18,10 @@ type ChartType = 'bar' | 'line' | 'scatter';
 type ChartSize = 'normal' | 'large';
 
 
-const getCategoryIcon = (category?: string) => {
-    switch(category?.toLowerCase()) {
-        case 'dairy': return <DairyIcon />;
-        case 'bakery': return <BakeryIcon />;
-        case 'pantry': return <PantryIcon />;
-        case 'drinks': return <DrinksIcon />;
-        case 'produce': return <ProduceIcon />;
-        default: return <GenericProductIcon />;
-    }
-};
-
 const CustomTooltip = ({ active, payload, label, theme, formatter, unit = '', extraField, extraFieldFormatter }: any) => {
-  const tooltipBg = theme === 'dark' ? 'rgba(15, 37, 87, 0.8)' : 'rgba(255, 255, 255, 0.9)';
-  const textColor = theme === 'dark' ? '#f3f4f6' : '#0F2557';
-  const labelColor = theme === 'dark' ? '#d1d5db' : '#4b5563';
+  const tooltipBg = theme === 'dark' ? 'rgba(15, 23, 42, 0.9)' : 'rgba(255, 255, 255, 0.95)';
+  const textColor = theme === 'dark' ? '#f3f4f6' : '#1e293b';
+  const labelColor = theme === 'dark' ? '#94a3b8' : '#64748b';
 
   if (active && payload && payload.length) {
     const data = payload[0];
@@ -43,9 +30,9 @@ const CustomTooltip = ({ active, payload, label, theme, formatter, unit = '', ex
     const formattedExtra = extraFieldFormatter ? extraFieldFormatter(extraData) : extraData;
 
     return (
-      <div style={{ backgroundColor: tooltipBg, backdropFilter: 'blur(5px)' }} className="p-3 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
-        <p style={{ color: labelColor }} className="text-sm font-bold font-display mb-1">{label || data.name}</p>
-        <p style={{ color: textColor }} className="text-sm font-sans">
+      <div style={{ backgroundColor: tooltipBg }} className="p-4 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 backdrop-blur-md z-50">
+        <p style={{ color: labelColor }} className="text-xs font-bold uppercase tracking-wider mb-2">{label || data.name}</p>
+        <p style={{ color: textColor }} className="text-base font-sans">
           <span className="font-semibold">{data.name}:</span> {formattedValue}
         </p>
         {extraField && extraData !== undefined && (
@@ -59,63 +46,12 @@ const CustomTooltip = ({ active, payload, label, theme, formatter, unit = '', ex
   return null;
 };
 
-const COLORS_LIGHT = ['#4ECDC4', '#4B8F8C', '#5A6E8C', '#2E4057', '#0F2557', '#93c5fd'];
-const COLORS_DARK = ['#4ECDC4', '#58A49E', '#7B8DA8', '#5A6E8C', '#3c5a8e', '#7dd3fc'];
-
-const RADIAN = Math.PI / 180;
-const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, name, fill }: any) => {
-  const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-  const labelRadius = outerRadius + 25;
-  const x = cx + labelRadius * Math.cos(-midAngle * RADIAN);
-  const y = cy + labelRadius * Math.sin(-midAngle * RADIAN);
-  const sin = Math.sin(-midAngle * RADIAN);
-  const cos = Math.cos(-midAngle * RADIAN);
-  const sx = cx + (outerRadius + 10) * cos;
-  const sy = cy + (outerRadius + 10) * sin;
-  const mx = cx + (outerRadius + 20) * cos;
-  const my = cy + (outerRadius + 20) * sin;
-  const ex = mx + (cos >= 0 ? 1 : -1) * 2;
-  const ey = my;
-  const textAnchor = cos >= 0 ? 'start' : 'end';
-
-  return (
-    <g>
-      <path d={`M${sx},${sy}L${mx},${my}L${ex},${ey}`} stroke={fill} fill="none" />
-      <circle cx={ex} cy={ey} r={2} fill={fill} stroke="none" />
-      <text x={x} y={y} textAnchor={textAnchor} fill={fill} fontSize={12} dominantBaseline="central">
-        {`${name} (${(percent * 100).toFixed(0)}%)`}
-      </text>
-    </g>
-  );
-};
-
+const COLORS_LIGHT = ['#3b82f6', '#10b981', '#f59e0b', '#6366f1', '#ec4899', '#8b5cf6'];
+const COLORS_DARK = ['#60a5fa', '#34d399', '#fbbf24', '#818cf8', '#f472b6', '#a78bfa'];
 
 const ProfitabilityCharts: React.FC<ProfitabilityChartsProps> = ({ products, allProducts, hoveredProductId, setHoveredProductId, theme, onCategorySelect, selectedCategory }) => {
     const [chartType, setChartType] = useState<ChartType>('bar');
     const [chartSize, setChartSize] = useState<ChartSize>('normal');
-
-    const HorizontalBarLabel = (props: any) => {
-        const { y, width, payload } = props;
-        
-        if (!payload || !payload.category) {
-            return null;
-        }
-
-        const isDark = theme === 'dark';
-        const iconColor = isDark ? '#F8F9FA' : '#0F2557';
-
-        if (width < 30) {
-            return null;
-        }
-
-        return (
-            <g transform={`translate(${width - 25}, ${y + 2})`}>
-               <foreignObject width="20" height="20" color={iconColor}>
-                    {getCategoryIcon(payload.category)}
-               </foreignObject>
-            </g>
-        );
-    };
 
     const handleMouseMove = (state: any) => {
         if (state.isTooltipActive && state.activePayload && state.activePayload.length > 0) {
@@ -165,19 +101,19 @@ const ProfitabilityCharts: React.FC<ProfitabilityChartsProps> = ({ products, all
     const totalRevenue = useMemo(() => revenueByCategory.reduce((sum, cat) => sum + cat.value, 0), [revenueByCategory]);
 
 
-    const tickColor = theme === 'dark' ? '#9ca3af' : '#6b7280';
-    const gridColor = theme === 'dark' ? '#374151' : '#e5e7eb';
+    const tickColor = theme === 'dark' ? '#94a3b8' : '#64748b';
+    const gridColor = theme === 'dark' ? '#334155' : '#e2e8f0';
     const COLORS = theme === 'dark' ? COLORS_DARK : COLORS_LIGHT;
 
     const currencyFormatter = (value: number) => value.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
     const percentFormatter = (value: number) => `${value.toFixed(1)}%`;
 
     const filterBadge = selectedCategory ? (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-brand-primary/10 text-brand-primary dark:bg-brand-primary/20 dark:text-gray-200">
-            Filter: {selectedCategory}
+        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-brand-primary text-white shadow-sm ring-2 ring-white dark:ring-gray-800">
+            {selectedCategory}
             <button
                 onClick={() => onCategorySelect(null)}
-                className="flex-shrink-0 ml-1.5 p-0.5 rounded-full inline-flex items-center justify-center text-brand-primary/50 hover:text-brand-primary hover:bg-brand-primary/20 focus:outline-none focus:bg-brand-primary/20 focus:text-brand-primary"
+                className="ml-2 hover:text-red-200 focus:outline-none"
                 aria-label={`Remove ${selectedCategory} filter`}
             >
                 <XCircleIcon />
@@ -188,7 +124,7 @@ const ProfitabilityCharts: React.FC<ProfitabilityChartsProps> = ({ products, all
     const actions = (
         <button
             onClick={() => setChartSize(prev => prev === 'normal' ? 'large' : 'normal')}
-            className="p-2 rounded-full text-brand-text-secondary dark:text-gray-400 hover:bg-gray-200/70 dark:hover:bg-gray-700/70 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-primary dark:focus:ring-offset-gray-800 transition-colors"
+            className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-white transition-colors"
             aria-label={chartSize === 'normal' ? 'Enlarge charts' : 'Shrink charts'}
         >
             {chartSize === 'normal' ? <ArrowsPointingOutIcon /> : <ArrowsPointingInIcon />}
@@ -204,88 +140,107 @@ const ProfitabilityCharts: React.FC<ProfitabilityChartsProps> = ({ products, all
 
         const commonTooltip = <Tooltip
             content={<CustomTooltip theme={theme} formatter={currencyFormatter} extraField="margin" extraFieldFormatter={percentFormatter}/>}
-            cursor={{ fill: 'rgba(15, 37, 87, 0.05)' }}
+            cursor={{ fill: theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)' }}
         />;
         
         const showXAxisLabels = products.length <= 15;
 
+        // Container Height Logic
+        const containerHeight = chartSize === 'normal' ? 380 : 680;
+
         switch (chartType) {
             case 'line':
                 return (
-                     <ComposedChart data={products} {...commonProps}>
-                        <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
-                        <XAxis dataKey="name" tick={showXAxisLabels ? { fill: tickColor, fontSize: 12 } : false} angle={-25} textAnchor="end" height={showXAxisLabels ? 70 : 20} interval={0}/>
-                        <YAxis tickFormatter={(value) => `$${value}`} tick={{ fill: tickColor, fontSize: 12 }} />
-                        {commonTooltip}
-                        <Line type="monotone" dataKey="weeklyProfit" name="Weekly Profit" stroke={theme === 'dark' ? COLORS_DARK[0] : COLORS_LIGHT[0]} strokeWidth={2} dot={false} isAnimationActive={true} animationDuration={500} animationEasing="ease-in-out" />
-                        <Scatter dataKey="weeklyProfit" name="Weekly Profit" isAnimationActive={true} animationDuration={500} animationEasing="ease-in-out" />
-                    </ComposedChart>
+                     <ResponsiveContainer width="100%" height={containerHeight}>
+                         <ComposedChart data={products} {...commonProps}>
+                            <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
+                            <XAxis dataKey="name" tick={showXAxisLabels ? { fill: tickColor, fontSize: 11 } : false} angle={-25} textAnchor="end" height={showXAxisLabels ? 70 : 20} interval={0} axisLine={false} tickLine={false}/>
+                            <YAxis tickFormatter={(value) => `$${value}`} tick={{ fill: tickColor, fontSize: 11 }} axisLine={false} tickLine={false} />
+                            {commonTooltip}
+                            <defs>
+                                <linearGradient id="profitGradient" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor={COLORS[0]} stopOpacity={0.8}/>
+                                    <stop offset="95%" stopColor={COLORS[0]} stopOpacity={0}/>
+                                </linearGradient>
+                            </defs>
+                            <Area type="monotone" dataKey="weeklyProfit" fillOpacity={1} fill="url(#profitGradient)" stroke="none" />
+                            <Line type="monotone" dataKey="weeklyProfit" name="Weekly Profit" stroke={COLORS[0]} strokeWidth={3} dot={{r: 4, fill: COLORS[0], strokeWidth: 2, stroke: theme === 'dark' ? '#0f172a' : '#fff'}} isAnimationActive={true} />
+                        </ComposedChart>
+                    </ResponsiveContainer>
                 );
             case 'scatter':
                 return (
-                    <ScatterChart data={products} {...commonProps}>
-                        <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
-                        <XAxis type="category" dataKey="name" name="Product" tick={showXAxisLabels ? { fill: tickColor, fontSize: 12 } : false} angle={-25} textAnchor="end" height={showXAxisLabels ? 70 : 20} interval={0}/>
-                        <YAxis type="number" dataKey="weeklyProfit" name="Weekly Profit" tickFormatter={(value) => `$${value}`} tick={{ fill: tickColor, fontSize: 12 }} />
-                        {commonTooltip}
-                        <Scatter name="Weekly Profit" dataKey="weeklyProfit" isAnimationActive={true} animationDuration={500} animationEasing="ease-in-out" fill={theme === 'dark' ? COLORS_DARK[0] : COLORS_LIGHT[0]}/>
-                    </ScatterChart>
+                     <ResponsiveContainer width="100%" height={containerHeight}>
+                        <ScatterChart data={products} {...commonProps}>
+                            <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+                            <XAxis type="category" dataKey="name" name="Product" tick={showXAxisLabels ? { fill: tickColor, fontSize: 11 } : false} angle={-25} textAnchor="end" height={showXAxisLabels ? 70 : 20} interval={0} tickLine={false} axisLine={false}/>
+                            <YAxis type="number" dataKey="weeklyProfit" name="Weekly Profit" tickFormatter={(value) => `$${value}`} tick={{ fill: tickColor, fontSize: 11 }} tickLine={false} axisLine={false} />
+                            {commonTooltip}
+                            <Scatter name="Weekly Profit" dataKey="weeklyProfit" fill={COLORS[0]}/>
+                        </ScatterChart>
+                    </ResponsiveContainer>
                 );
             case 'bar':
             default:
+                // FIX for vertical stretching: 
+                // We use a fixed height for each bar to ensure readability.
+                // If the total height exceeds the container, the parent div will scroll.
                 const barHeight = 40; 
-                const chartHeight = Math.max(350, products.length * barHeight);
+                const chartContentHeight = Math.max(containerHeight, products.length * barHeight);
+
                 return (
-                     <ResponsiveContainer width="100%" height={chartHeight}>
-                        <BarChart
-                            layout="vertical"
-                            data={products}
-                            {...commonProps}
-                        >
-                            <CartesianGrid strokeDasharray="3 3" stroke={gridColor} horizontal={false} />
-                            <XAxis type="number" tickFormatter={(value) => `$${value}`} tick={{ fill: tickColor, fontSize: 12 }} />
-                            <YAxis type="category" dataKey="name" width={80} tick={{ fill: tickColor, fontSize: 12 }} interval={0} />
-                            {commonTooltip}
-                            <Bar dataKey="weeklyProfit" name="Weekly Profit" barSize={25} isAnimationActive={true} animationDuration={500} animationEasing="ease-in-out">
-                                {products.map((entry, index) => (
-                                    <Cell key={`cell-${entry.id}`} fill={entry.id === hoveredProductId ? (theme === 'dark' ? '#FF6B6B' : '#0A1A3A') : COLORS[index % COLORS.length]} />
-                                ))}
-                            </Bar>
-                        </BarChart>
-                    </ResponsiveContainer>
+                    <div style={{ height: containerHeight, overflowY: 'auto', paddingRight: '10px' }} className="custom-scrollbar">
+                         <ResponsiveContainer width="100%" height={chartContentHeight}>
+                            <BarChart
+                                layout="vertical"
+                                data={products}
+                                {...commonProps}
+                                barCategoryGap="20%"
+                            >
+                                <CartesianGrid strokeDasharray="3 3" stroke={gridColor} horizontal={false} />
+                                <XAxis type="number" tickFormatter={(value) => `$${value}`} tick={{ fill: tickColor, fontSize: 11 }} axisLine={false} tickLine={false} orientation="top" />
+                                <YAxis type="category" dataKey="name" width={120} tick={{ fill: tickColor, fontSize: 11 }} interval={0} axisLine={false} tickLine={false} />
+                                {commonTooltip}
+                                <Bar dataKey="weeklyProfit" name="Weekly Profit" radius={[0, 4, 4, 0]}>
+                                    {products.map((entry, index) => (
+                                        <Cell key={`cell-${entry.id}`} fill={entry.id === hoveredProductId ? (theme === 'dark' ? '#ef4444' : '#1d4ed8') : COLORS[index % COLORS.length]} />
+                                    ))}
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
                 );
         }
     };
     
     return (
         <Card title="Visual Reports" icon={<PresentationChartLineIcon />} badge={filterBadge} actions={actions}>
-            <div className="p-6 space-y-12">
+            <div className="space-y-12">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                    {/* Weekly Profit Chart */}
                     <div>
-                        <div className="flex items-center justify-center space-x-4 mb-4">
-                             <h3 className="text-lg font-semibold font-display text-brand-primary dark:text-gray-300">Weekly Profit by Product</h3>
-                             <div className="flex items-center space-x-1 bg-gray-200/50 dark:bg-gray-900/50 p-1 rounded-lg">
-                                 <ChartTypeToggle icon={<ChartBarIcon className="w-5 h-5"/>} type="bar" activeType={chartType} setType={setChartType} />
-                                 <ChartTypeToggle icon={<LineChartIcon className="w-5 h-5"/>} type="line" activeType={chartType} setType={setChartType} />
-                                 <ChartTypeToggle icon={<ScatterChartIcon className="w-5 h-5"/>} type="scatter" activeType={chartType} setType={setChartType} />
+                        <div className="flex items-center justify-between mb-6">
+                             <h3 className="text-lg font-bold font-display text-gray-800 dark:text-gray-200">Weekly Profit</h3>
+                             <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-xl shadow-inner">
+                                 <ChartTypeToggle icon={<ChartBarIcon className="w-4 h-4"/>} type="bar" activeType={chartType} setType={setChartType} />
+                                 <ChartTypeToggle icon={<LineChartIcon className="w-4 h-4"/>} type="line" activeType={chartType} setType={setChartType} />
+                                 <ChartTypeToggle icon={<ScatterChartIcon className="w-4 h-4"/>} type="scatter" activeType={chartType} setType={setChartType} />
                              </div>
                         </div>
                         <div 
-                            className="transition-all duration-300 ease-in-out"
-                            style={{ height: chartSize === 'normal' ? '350px' : '700px' }}
+                            className="transition-all duration-300 ease-in-out bg-white dark:bg-gray-800/50 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-2 overflow-hidden"
+                            style={{ height: chartSize === 'normal' ? '400px' : '700px' }}
                         >
-                            <div className="w-full h-full" style={chartType === 'bar' ? { overflowY: 'auto' } : {}}>
-                                <div key={chartType} className="animate-fade-in-fast w-full h-full">
-                                    {renderWeeklyProfitChart()}
-                                </div>
-                            </div>
+                             {renderWeeklyProfitChart()}
                         </div>
                     </div>
+
+                    {/* Profit Margin Chart */}
                     <div>
-                        <h3 className="text-lg font-semibold font-display text-brand-primary dark:text-gray-300 mb-4 text-center">Profit Margin by Product</h3>
+                        <h3 className="text-lg font-bold font-display text-gray-800 dark:text-gray-200 mb-6">Profit Margin %</h3>
                         <div 
-                            className="transition-all duration-300 ease-in-out"
-                            style={{ height: chartSize === 'normal' ? '350px' : '700px' }}
+                            className="transition-all duration-300 ease-in-out bg-white dark:bg-gray-800/50 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-4"
+                            style={{ height: chartSize === 'normal' ? '400px' : '700px' }}
                         >
                            <ResponsiveContainer width="100%" height="100%">
                                <ComposedChart
@@ -294,97 +249,91 @@ const ProfitabilityCharts: React.FC<ProfitabilityChartsProps> = ({ products, all
                                     onMouseMove={handleMouseMove}
                                     onMouseLeave={handleMouseLeave}
                                 >
-                                    <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
-                                    <XAxis dataKey="name" tick={products.length <= 15 ? { fontSize: 12, fill: tickColor } : false} angle={-25} textAnchor="end" height={products.length <= 15 ? 70 : 20} interval={0} />
-                                    <YAxis tickFormatter={(value) => `${value}%`} tick={{ fill: tickColor }} />
+                                    <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false}/>
+                                    <XAxis dataKey="name" tick={products.length <= 15 ? { fontSize: 11, fill: tickColor } : false} angle={-25} textAnchor="end" height={products.length <= 15 ? 70 : 20} interval={0} axisLine={false} tickLine={false}/>
+                                    <YAxis tickFormatter={(value) => `${value}%`} tick={{ fill: tickColor, fontSize: 11 }} axisLine={false} tickLine={false}/>
                                     <Tooltip
                                         content={<CustomTooltip theme={theme} unit="%" extraField="weeklyProfit" extraFieldFormatter={currencyFormatter} />}
-                                        cursor={{ fill: 'rgba(78, 205, 196, 0.1)' }}
+                                        cursor={{ fill: 'rgba(59, 130, 246, 0.05)' }}
                                     />
-                                    <Bar dataKey="margin" name="Margin" barSize={4} isAnimationActive={true} animationDuration={500} animationEasing="ease-in-out">
-                                        {products.map((entry) => (
-                                            <Cell key={`cell-${entry.id}`} fill={theme === 'dark' ? '#7B8DA8' : '#AAB7CD'} />
-                                        ))}
-                                    </Bar>
-                                    <Scatter dataKey="margin" name="Margin" isAnimationActive={true} animationDuration={500} animationEasing="ease-in-out" fill="#4ECDC4" />
+                                    <Bar dataKey="margin" name="Margin" barSize={8} radius={[4, 4, 0, 0]} fill={theme === 'dark' ? '#475569' : '#cbd5e1'} />
+                                    <Scatter dataKey="margin" name="Margin" fill={COLORS[1]} />
                                 </ComposedChart>
                             </ResponsiveContainer>
                         </div>
                     </div>
                 </div>
-
             </div>
 
             {(revenueByCategory.length > 0 || marginByCategory.length > 0) && (
-                <div className="mt-6">
-                    <div className="p-6 border-t border-gray-200/80 dark:border-gray-700/80">
-                         <div className="flex items-center space-x-3 mb-6">
-                            <span className="text-brand-primary dark:text-brand-accent-profit"><BriefcaseIcon /></span>
-                            <h2 className="text-xl font-semibold font-display text-brand-primary dark:text-gray-200">Category Analysis</h2>
+                <div className="mt-12 pt-10 border-t border-gray-100 dark:border-gray-800">
+                     <div className="flex items-center space-x-3 mb-8">
+                        <div className="p-2 rounded-xl bg-blue-50 text-brand-primary dark:bg-blue-900/30 dark:text-blue-300 ring-1 ring-blue-100 dark:ring-blue-800">
+                             <BriefcaseIcon />
                         </div>
-                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-                            {revenueByCategory.length > 0 && (
-                                <div>
-                                    <h3 className="text-lg font-semibold font-display text-brand-primary dark:text-gray-300 mb-4 text-center">Revenue by Category</h3>
-                                    <div className="relative h-[350px]">
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <PieChart margin={{ top: 40, right: 40, bottom: 40, left: 40 }}>
-                                                <Pie 
-                                                    data={revenueByCategory} 
-                                                    dataKey="value" 
-                                                    nameKey="name" 
-                                                    cx="50%" 
-                                                    cy="50%" 
-                                                    outerRadius={100} 
-                                                    innerRadius={60}
-                                                    paddingAngle={2}
-                                                    fill="#8884d8" 
-                                                    isAnimationActive={true}
-                                                    animationDuration={500}
-                                                    animationEasing="ease-in-out"
-                                                    onClick={(data) => onCategorySelect(data.name)}
-                                                >
-                                                    {revenueByCategory.map((entry, index) => (
-                                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                                    ))}
-                                                </Pie>
-                                                <Tooltip formatter={currencyFormatter} content={<CustomTooltip theme={theme}/>} />
-                                            </PieChart>
-                                        </ResponsiveContainer>
-                                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                                            <span className="text-sm text-brand-text-secondary dark:text-gray-400">Total Revenue</span>
-                                            <span className="text-2xl font-bold font-display text-brand-primary dark:text-white">{currencyFormatter(totalRevenue)}</span>
-                                        </div>
+                        <h2 className="text-xl font-bold font-display text-gray-900 dark:text-white">Category Deep Dive</h2>
+                    </div>
+                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+                        {revenueByCategory.length > 0 && (
+                            <div className="bg-white/50 dark:bg-gray-800/30 rounded-3xl border border-gray-100 dark:border-gray-700/50 p-6 shadow-sm">
+                                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-6 text-center">Revenue Distribution</h3>
+                                <div className="relative h-[300px]">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
+                                            <Pie 
+                                                data={revenueByCategory} 
+                                                dataKey="value" 
+                                                nameKey="name" 
+                                                cx="50%" 
+                                                cy="50%" 
+                                                outerRadius={110} 
+                                                innerRadius={70}
+                                                paddingAngle={3}
+                                                cornerRadius={6}
+                                                stroke="none"
+                                                onClick={(data) => onCategorySelect(data.name)}
+                                                cursor="pointer"
+                                            >
+                                                {revenueByCategory.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                                ))}
+                                            </Pie>
+                                            <Tooltip formatter={currencyFormatter} content={<CustomTooltip theme={theme}/>} />
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                        <span className="text-xs text-gray-400 font-semibold uppercase tracking-wide">Total Revenue</span>
+                                        <span className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{currencyFormatter(totalRevenue)}</span>
                                     </div>
                                 </div>
-                            )}
-                             {marginByCategory.length > 0 && (
-                                <div>
-                                    <h3 className="text-lg font-semibold font-display text-brand-primary dark:text-gray-300 mb-4 text-center">Average Margin by Category</h3>
-                                    <ResponsiveContainer width="100%" height={300}>
-                                        <BarChart
-                                            layout="vertical"
-                                            data={marginByCategory}
-                                            margin={{ top: 15, right: 30, left: 20, bottom: 5 }}
-                                        >
-                                            <CartesianGrid strokeDasharray="3 3" stroke={gridColor} horizontal={false} />
-                                            <XAxis type="number" tickFormatter={(value) => `${value.toFixed(0)}%`} tick={{ fill: tickColor, fontSize: 12 }} />
-                                            <YAxis type="category" dataKey="name" width={80} tick={{ fill: tickColor, fontSize: 12 }} />
-                                            <Tooltip
-                                                formatter={percentFormatter}
-                                                content={<CustomTooltip theme={theme} />}
-                                                cursor={false}
-                                            />
-                                            <Bar dataKey="value" name="Avg. Margin" barSize={25} onClick={(data) => onCategorySelect(data.name)} isAnimationActive={true} animationDuration={500} animationEasing="ease-in-out">
-                                                {marginByCategory.map((entry, index) => (
-                                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]}/>
-                                                ))}
-                                            </Bar>
-                                        </BarChart>
-                                    </ResponsiveContainer>
-                                </div>
-                             )}
-                        </div>
+                            </div>
+                        )}
+                         {marginByCategory.length > 0 && (
+                            <div className="bg-white/50 dark:bg-gray-800/30 rounded-3xl border border-gray-100 dark:border-gray-700/50 p-6 shadow-sm">
+                                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-6 text-center">Avg Margin by Category</h3>
+                                <ResponsiveContainer width="100%" height={300}>
+                                    <BarChart
+                                        layout="vertical"
+                                        data={marginByCategory}
+                                        margin={{ top: 0, right: 20, left: 10, bottom: 0 }}
+                                    >
+                                        <CartesianGrid strokeDasharray="3 3" stroke={gridColor} horizontal={false} />
+                                        <XAxis type="number" tickFormatter={(value) => `${value.toFixed(0)}%`} tick={{ fill: tickColor, fontSize: 11 }} axisLine={false} tickLine={false}/>
+                                        <YAxis type="category" dataKey="name" width={80} tick={{ fill: tickColor, fontSize: 11 }} axisLine={false} tickLine={false} />
+                                        <Tooltip
+                                            formatter={percentFormatter}
+                                            content={<CustomTooltip theme={theme} />}
+                                            cursor={{ fill: 'rgba(0,0,0,0.02)' }}
+                                        />
+                                        <Bar dataKey="value" name="Avg. Margin" barSize={24} radius={[0, 6, 6, 0]} onClick={(data) => onCategorySelect(data.name)} cursor="pointer">
+                                            {marginByCategory.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]}/>
+                                            ))}
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                         )}
                     </div>
                 </div>
             )}
@@ -402,10 +351,10 @@ const ChartTypeToggle: React.FC<{
     return (
         <button
             onClick={() => setType(type)}
-            className={`p-1.5 rounded-md transition-colors ${
+            className={`p-2 rounded-lg transition-all duration-200 ${
                 isActive
-                    ? 'bg-brand-primary text-white shadow'
-                    : 'text-brand-text-secondary dark:text-gray-400 hover:bg-white/60 dark:hover:bg-gray-800/60'
+                    ? 'bg-white dark:bg-gray-700 text-brand-primary dark:text-white shadow-sm scale-105'
+                    : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-white/50 dark:hover:bg-gray-700/50'
             }`}
             aria-label={`Switch to ${type} chart`}
         >

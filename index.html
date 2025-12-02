@@ -8,39 +8,43 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
 <script>
     tailwind.config = {
         darkMode: 'class',
         theme: {
             extend: {
                 colors: {
-                    'brand-primary': '#0F2557',
-                    'brand-primary-dark': '#0A1A3A',
-                    'brand-background': '#F8F9FA',
-                    'brand-background-dark': '#111827',
-                    'brand-accent-profit': '#4ECDC4',
-                    'brand-accent-warning': '#FF6B6B',
-                    'brand-text-primary': '#1F2937',
-                    'brand-text-secondary': '#4B5563',
+                    'brand-primary': '#3b82f6', // Bright Blue
+                    'brand-primary-dark': '#1d4ed8',
+                    'brand-background': '#f8fafc',
+                    'brand-background-dark': '#0f172a',
+                    'brand-accent-profit': '#10b981', // Emerald
+                    'brand-accent-warning': '#ef4444', // Red
+                    'brand-text-primary': '#1e293b',
+                    'brand-text-secondary': '#64748b',
                 },
                 fontFamily: {
-                    sans: ['Open Sans', 'sans-serif'],
-                    display: ['Poppins', 'sans-serif'],
+                    sans: ['Inter', 'sans-serif'],
+                    display: ['Outfit', 'sans-serif'],
                 },
                 keyframes: {
                     'aurora-spin': {
-                        'from': { transform: 'rotate(0deg)' },
-                        'to': { transform: 'rotate(360deg)' },
+                        'from': { transform: 'rotate(0deg) scale(1)' },
+                        'to': { transform: 'rotate(360deg) scale(1.1)' },
                     },
                     'aurora-move': {
                         '0%, 100%': { transform: 'translate(0, 0) rotate(0deg)' },
-                        '50%': { transform: 'translate(100px, 40px) rotate(10deg)' },
+                        '50%': { transform: 'translate(50px, 20px) rotate(5deg)' },
                     }
                 },
                 animation: {
-                    'aurora-spin': 'aurora-spin 45s linear infinite',
-                    'aurora-move': 'aurora-move 35s ease-in-out infinite alternate',
+                    'aurora-spin': 'aurora-spin 60s linear infinite',
+                    'aurora-move': 'aurora-move 40s ease-in-out infinite alternate',
+                },
+                boxShadow: {
+                    'glass': '0 8px 32px 0 rgba(31, 38, 135, 0.05)',
+                    'inner-lg': 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.06)',
                 }
             }
         }
@@ -64,7 +68,6 @@
 }
 </script>
 <script>
-    // Apply theme before rendering to prevent FOUC
     if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
         document.documentElement.classList.add('dark');
     } else {
@@ -73,78 +76,90 @@
 </script>
 <style>
     body {
-        font-family: 'Open Sans', sans-serif;
+        font-family: 'Inter', sans-serif;
     }
     h1, h2, h3, h4, h5, h6 {
-        font-family: 'Poppins', sans-serif;
+        font-family: 'Outfit', sans-serif;
     }
+    
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+        background: #e2e8f0;
+        border-radius: 4px;
+    }
+    .dark ::-webkit-scrollbar-thumb {
+        background: #334155;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        background: #cbd5e1;
+    }
+    .dark ::-webkit-scrollbar-thumb:hover {
+        background: #475569;
+    }
+
     .animate-shimmer {
         background-image: linear-gradient(
             to right,
             transparent 0%,
-            rgba(255, 255, 255, 0.2) 20%,
-            rgba(255, 255, 255, 0.5) 60%,
+            rgba(255, 255, 255, 0.4) 20%,
+            rgba(255, 255, 255, 0.7) 60%,
             transparent 100%
         );
         background-size: 200% 100%;
-        animation: shimmer 1.5s linear infinite;
+        animation: shimmer 2s linear infinite;
+    }
+    .dark .animate-shimmer {
+        background-image: linear-gradient(
+            to right,
+            transparent 0%,
+            rgba(255, 255, 255, 0.05) 20%,
+            rgba(255, 255, 255, 0.1) 60%,
+            transparent 100%
+        );
     }
 
     @keyframes shimmer {
-        0% {
-            background-position: -200% 0;
-        }
-        100% {
-            background-position: 200% 0;
-        }
+        0% { background-position: -200% 0; }
+        100% { background-position: 200% 0; }
     }
 
-    @keyframes fade-in {
-        from { opacity: 0; }
-        to { opacity: 1; }
+    @keyframes fade-in-up {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
     }
-    .animate-fade-in {
-        animation: fade-in 0.5s ease-out forwards;
-    }
-    @keyframes fade-in-fast {
-        from { opacity: 0; transform: scale(0.98) translateY(5px); }
-        to { opacity: 1; transform: scale(1) translateY(0); }
-    }
-    .animate-fade-in-fast {
-        animation: fade-in-fast 0.4s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+    .animate-fade-in-up {
+        animation: fade-in-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     }
     
+    .glass-effect {
+        background: rgba(255, 255, 255, 0.85);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.6);
+    }
+    .dark .glass-effect {
+        background: rgba(15, 23, 42, 0.65);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+
     .blur-150 {
         filter: blur(150px);
     }
-
-    .noise-overlay {
-        position: fixed;
-        inset: 0;
-        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 800 800' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-        opacity: 0.03;
-        pointer-events: none;
-        z-index: 10;
-    }
-
-    .dark .noise-overlay {
-        opacity: 0.05;
-    }
-
-    /* General chart interactivity */
-    .recharts-bar-cursor,
-    .recharts-pie-sector,
-    .recharts-scatter-symbol {
-        cursor: pointer !important;
-    }
 </style>
 </head>
-<body class="bg-brand-background dark:bg-brand-background-dark transition-colors duration-300">
-    <div class="fixed inset-0 -z-10 overflow-hidden">
-        <div class="absolute top-[-20rem] left-[-25rem] w-[50rem] h-[50rem] bg-brand-primary/10 dark:bg-brand-primary/20 rounded-full blur-150 animate-aurora-spin"></div>
-        <div class="absolute bottom-[-25rem] right-[-30rem] w-[60rem] h-[60rem] bg-brand-accent-profit/10 dark:bg-brand-accent-profit/20 rounded-full blur-150 animate-aurora-move"></div>
+<body class="bg-brand-background dark:bg-brand-background-dark transition-colors duration-300 text-brand-text-primary dark:text-gray-100 antialiased selection:bg-brand-primary selection:text-white">
+    <div class="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
+        <div class="absolute top-[-20%] left-[-10%] w-[70vw] h-[70vw] bg-blue-300/30 dark:bg-blue-900/10 rounded-full blur-150 animate-aurora-spin mix-blend-multiply dark:mix-blend-screen opacity-70"></div>
+        <div class="absolute bottom-[-20%] right-[-10%] w-[60vw] h-[60vw] bg-purple-300/30 dark:bg-indigo-900/10 rounded-full blur-150 animate-aurora-move mix-blend-multiply dark:mix-blend-screen opacity-70"></div>
     </div>
-    <div class="noise-overlay"></div>
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
 </body>
